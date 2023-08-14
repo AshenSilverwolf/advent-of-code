@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-const BUFFER_LEN: usize = 4;
+const BUFFER_LEN: usize = 14;
 
 enum State {
     Found,
