@@ -12,7 +12,7 @@ where
 
 fn parse_input() {
     if let Ok(lines) = read_lines("test.txt") {
-        for line in lines.into_iter().flatten() {
+        for _line in lines.into_iter().flatten() {
             // code here
         }
     }
