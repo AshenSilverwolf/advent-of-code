@@ -1,4 +1,4 @@
-use sorting_rs::selection_double_sort;
+use sorting_rs::insertion_sort;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -133,7 +133,7 @@ fn run_logic(mut monkeys: Vec<Monkey>) -> i32 {
         }
     }
 
-    selection_double_sort(&mut monkey_business);
+    insertion_sort(&mut monkey_business);
     let (top1, top2) = get_top_2(&mut monkey_business);
 
     top1 * top2
