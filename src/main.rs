@@ -1,9 +1,11 @@
-use pathfinding::prelude::astar;
+// pathfinding also has a Grid, but it doesn't meet our needs here
+// https://docs.rs/pathfinding/4.3.1/pathfinding/grid/struct.Grid.html#
+use pathfinding::prelude::{astar, bfs, dfs, dijkstra};
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Pos(usize, usize);
 
 impl Pos {
@@ -11,18 +13,24 @@ impl Pos {
         Pos(0, 0)
     }
 
-    fn successors(&self, grid: &Vec<Vec<i32>>) -> Vec<Pos> {
+    fn distance(&self, other: &Pos) -> u32 {
+        (self.0.abs_diff(other.0) + self.1.abs_diff(other.1)) as u32
+    }
+
+    fn successors(&self, grid: &Vec<Vec<i32>>) -> Vec<(Pos, u32)> {
         let &Pos(this_r, this_c) = self;
-        vec![
-            Pos(this_r - 1, this_c),
-            Pos(this_r + 1, this_c),
-            Pos(this_r, this_c - 1),
-            Pos(this_r, this_c + 1),
+        [
+            this_r.checked_sub(1).map(|diff| Pos(diff, this_c)),
+            Some(Pos(this_r + 1, this_c)),
+            this_c.checked_sub(1).map(|diff| Pos(this_r, diff)),
+            Some(Pos(this_r, this_c + 1)),
         ]
         .into_iter()
+        .flatten()
         .filter(|Pos(r, c)| {
             *r < grid.len() && *c < grid[0].len() && grid[*r][*c] - grid[this_r][this_c] <= 1
         })
+        .map(|p| (p, 1))
         .collect()
     }
 }
@@ -70,9 +78,15 @@ fn parse_input() -> (Pos, Pos, Vec<Vec<i32>>) {
 
 fn main() {
     let (start, end, grid) = parse_input();
-    println!("start: {:?}", start);
-    println!("end: {:?}", end);
-    for row in grid {
-        println!("{:?}", row);
-    }
+
+    println!("start: {:?}\nend: {:?}", start, end);
+
+    let result = astar(
+        &start,
+        |p| p.successors(&grid),
+        |p| p.distance(&end),
+        |p| *p == end,
+    );
+
+    println!("{}", result.unwrap().1);
 }
