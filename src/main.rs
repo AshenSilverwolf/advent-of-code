@@ -1,6 +1,6 @@
 // pathfinding also has a Grid, but it doesn't meet our needs here
 // https://docs.rs/pathfinding/4.3.1/pathfinding/grid/struct.Grid.html#
-use pathfinding::prelude::{astar, bfs, dfs, dijkstra};
+use pathfinding::prelude::astar;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
@@ -61,14 +61,14 @@ fn parse_input() -> (Pos, Pos, Vec<Vec<i32>>) {
         }
     }
 
-    for r in 0..grid.len() {
-        for c in 0..grid[r].len() {
-            if grid[r][c] == 0 {
+    for (r, row) in grid.iter_mut().enumerate() {
+        for (c, col) in row.iter_mut().enumerate() {
+            if *col == 0 {
                 start = Pos(r, c);
-                grid[r][c] = 1;
-            } else if grid[r][c] == -1 {
+                *col = 1;
+            } else if *col == -1 {
                 end = Pos(r, c);
-                grid[r][c] = 26;
+                *col = 26;
             }
         }
     }
@@ -78,8 +78,6 @@ fn parse_input() -> (Pos, Pos, Vec<Vec<i32>>) {
 
 fn main() {
     let (start, end, grid) = parse_input();
-
-    println!("start: {:?}\nend: {:?}", start, end);
 
     let result = astar(
         &start,
