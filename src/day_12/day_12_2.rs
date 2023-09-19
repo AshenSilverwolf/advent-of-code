@@ -1,0 +1,96 @@
+// pathfinding also has a Grid, but it doesn't meet our needs here
+// https://docs.rs/pathfinding/4.3.1/pathfinding/grid/struct.Grid.html#
+use pathfinding::prelude::astar;
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::{self, BufRead};
+use std::path::Path;
+
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+struct Pos(usize, usize);
+
+impl Pos {
+    fn new() -> Pos {
+        Pos(0, 0)
+    }
+
+    fn distance(&self, other: &Pos) -> u32 {
+        (self.0.abs_diff(other.0) + self.1.abs_diff(other.1)) as u32
+    }
+
+    fn successors(&self, grid: &Vec<Vec<i32>>) -> Vec<(Pos, u32)> {
+        let &Pos(this_r, this_c) = self;
+        [
+            this_r.checked_sub(1).map(|diff| Pos(diff, this_c)),
+            Some(Pos(this_r + 1, this_c)),
+            this_c.checked_sub(1).map(|diff| Pos(this_r, diff)),
+            Some(Pos(this_r, this_c + 1)),
+        ]
+        .into_iter()
+        .flatten()
+        .filter(|Pos(r, c)| {
+            *r < grid.len() && *c < grid[0].len() && grid[*r][*c] - grid[this_r][this_c] <= 1
+        })
+        .map(|p| (p, 1))
+        .collect()
+    }
+}
+
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where
+    P: AsRef<Path>,
+{
+    let file = File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
+}
+
+fn parse_input() -> (HashSet<Pos>, Pos, Vec<Vec<i32>>) {
+    let mut starts: HashSet<Pos> = HashSet::new();
+    let mut end: Pos = Pos::new();
+    let mut grid: Vec<Vec<i32>> = vec![];
+    if let Ok(lines) = read_lines("test.txt") {
+        for line in lines.into_iter().flatten() {
+            let row: Vec<i32> = line
+                .chars()
+                .map(|c| match c {
+                    'S' => 1,
+                    'E' => -1,
+                    _ => c as i32 - 96,
+                })
+                .collect();
+            grid.push(row);
+        }
+    }
+
+    for (r, row) in grid.iter_mut().enumerate() {
+        for (c, col) in row.iter_mut().enumerate() {
+            if *col == 1 {
+                starts.insert(Pos(r, c));
+            } else if *col == -1 {
+                end = Pos(r, c);
+                *col = 26;
+            }
+        }
+    }
+
+    (starts, end, grid)
+}
+
+fn main() {
+    let (starts, end, grid) = parse_input();
+    let mut min: u32 = (grid.len() * grid[0].len()).try_into().unwrap();
+
+    for start in starts {
+        let result = astar(
+            &start,
+            |p| p.successors(&grid),
+            |p| p.distance(&end),
+            |p| *p == end,
+        );
+        if let Some((_path, length)) = result {
+            min = if length < min { length } else { min };
+        }
+    }
+
+    println!("{}", min);
+}
