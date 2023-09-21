@@ -144,7 +144,7 @@ fn run_logic(pairs: Vec<(Vec<LE>, Vec<LE>)>) -> Vec<usize> {
 
     for (index, (left, right)) in pairs.iter().enumerate() {
         if let Ordering::Less = compare(left, right) {
-            output.push(index);
+            output.push(index + 1);
         }
     }
 
