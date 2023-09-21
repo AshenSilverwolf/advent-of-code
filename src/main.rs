@@ -3,13 +3,48 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum ListElement {
     Num(i32),
     List(Vec<ListElement>),
 }
 
+impl PartialOrd for ListElement {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (LE::Num(left), LE::Num(right)) => left.partial_cmp(right),
+            (LE::Num(left), LE::List(right)) => {
+                [LE::List(vec![LE::Num(*left)])].partial_cmp(&[LE::List(right.to_vec())])
+            }
+            (LE::List(left), LE::Num(right)) => {
+                [LE::List(left.to_vec())].partial_cmp(&[LE::List(vec![LE::Num(*right)])])
+            }
+            (LE::List(left), LE::List(right)) => {
+                for (l, r) in left.iter().zip(right) {
+                    match l.partial_cmp(r) {
+                        Some(Ordering::Equal) => (),
+                        None => (),
+                        ordering => return ordering,
+                    }
+                }
+
+                left.len().partial_cmp(&right.len())
+            }
+        }
+    }
+}
+
+impl Ord for ListElement {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.partial_cmp(other) {
+            Some(ordering) => ordering,
+            None => unreachable!(),
+        }
+    }
+}
+
 type LE = ListElement;
+type Packet = Vec<LE>;
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 where
@@ -19,8 +54,8 @@ where
     Ok(io::BufReader::new(file).lines())
 }
 
-fn str_to_list(string: &str) -> Vec<LE> {
-    let mut output: Vec<LE> = vec![];
+fn str_to_list(string: &str) -> Packet {
+    let mut output: Packet = vec![];
     let mut chars = string.chars();
     let mut index = 0;
 
@@ -78,8 +113,8 @@ fn str_to_list(string: &str) -> Vec<LE> {
     output
 }
 
-fn parse_input() -> Vec<(Vec<LE>, Vec<LE>)> {
-    let mut output: Vec<(Vec<LE>, Vec<LE>)> = vec![];
+fn parse_input() -> Vec<(Packet, Packet)> {
+    let mut output: Vec<(Packet, Packet)> = vec![];
     if let Ok(lines) = read_lines("test.txt") {
         let mut lines_iter = lines.into_iter().flatten();
         loop {
@@ -101,49 +136,11 @@ fn parse_input() -> Vec<(Vec<LE>, Vec<LE>)> {
     output
 }
 
-fn compare(left: &[LE], right: &[LE]) -> Ordering {
-    let mut left_iter = left.iter();
-    let mut right_iter = right.iter();
-
-    while let (Some(left_option), Some(right_option)) = (left_iter.next(), right_iter.next()) {
-        match (left_option, right_option) {
-            (LE::Num(left_item), LE::Num(right_item)) => {
-                let cmp_result = left_item.cmp(right_item);
-                if cmp_result != Ordering::Equal {
-                    return cmp_result;
-                }
-            }
-            (LE::List(left_item), LE::List(right_item)) => {
-                let cmp_result = compare(left_item, right_item);
-                if cmp_result != Ordering::Equal {
-                    return cmp_result;
-                }
-            }
-            (LE::List(left_item), LE::Num(right_item)) => {
-                let cmp_result = compare(left_item, &[LE::Num(*right_item)]);
-                return match cmp_result {
-                    Ordering::Less => Ordering::Less,
-                    _ => Ordering::Greater,
-                };
-            }
-            (LE::Num(left_item), LE::List(right_item)) => {
-                let cmp_result = compare(&[LE::Num(*left_item)], right_item);
-                return match cmp_result {
-                    Ordering::Greater => Ordering::Greater,
-                    _ => Ordering::Less,
-                };
-            }
-        }
-    }
-
-    Ordering::Equal
-}
-
-fn run_logic(pairs: Vec<(Vec<LE>, Vec<LE>)>) -> Vec<usize> {
+fn run_logic(pairs: Vec<(Packet, Packet)>) -> Vec<usize> {
     let mut output: Vec<usize> = vec![];
 
     for (index, (left, right)) in pairs.iter().enumerate() {
-        if let Ordering::Less = compare(left, right) {
+        if let Ordering::Less = left.cmp(right) {
             output.push(index + 1);
         }
     }
