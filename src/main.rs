@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
@@ -100,11 +101,51 @@ fn parse_input() -> Vec<(Vec<LE>, Vec<LE>)> {
     output
 }
 
+fn compare(left: &[LE], right: &[LE]) -> Ordering {
+    let mut left_iter = left.iter();
+    let mut right_iter = right.iter();
+
+    while let (Some(left_option), Some(right_option)) = (left_iter.next(), right_iter.next()) {
+        match (left_option, right_option) {
+            (LE::Num(left_item), LE::Num(right_item)) => {
+                let cmp_result = left_item.cmp(right_item);
+                if cmp_result != Ordering::Equal {
+                    return cmp_result;
+                }
+            }
+            (LE::List(left_item), LE::List(right_item)) => {
+                let cmp_result = compare(left_item, right_item);
+                if cmp_result != Ordering::Equal {
+                    return cmp_result;
+                }
+            }
+            (LE::List(left_item), LE::Num(right_item)) => {
+                let cmp_result = compare(left_item, &[LE::Num(*right_item)]);
+                return match cmp_result {
+                    Ordering::Less => Ordering::Less,
+                    _ => Ordering::Greater,
+                };
+            }
+            (LE::Num(left_item), LE::List(right_item)) => {
+                let cmp_result = compare(&[LE::Num(*left_item)], right_item);
+                return match cmp_result {
+                    Ordering::Greater => Ordering::Greater,
+                    _ => Ordering::Less,
+                };
+            }
+        }
+    }
+
+    Ordering::Equal
+}
+
 fn run_logic(pairs: Vec<(Vec<LE>, Vec<LE>)>) -> Vec<usize> {
     let mut output: Vec<usize> = vec![];
 
-    for (left, right) in pairs {
-        println!("{:?}\n{:?}", left, right);
+    for (index, (left, right)) in pairs.iter().enumerate() {
+        if let Ordering::Less = compare(left, right) {
+            output.push(index);
+        }
     }
 
     output
@@ -113,4 +154,6 @@ fn run_logic(pairs: Vec<(Vec<LE>, Vec<LE>)>) -> Vec<usize> {
 fn main() {
     let pairs_list = parse_input();
     let ordered_indices = run_logic(pairs_list);
+    let sum: usize = ordered_indices.iter().sum();
+    println!("{}", sum);
 }
