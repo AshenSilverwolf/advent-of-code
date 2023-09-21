@@ -141,7 +141,7 @@ fn run_logic(pairs: Vec<(Packet, Packet)>) -> Vec<usize> {
 
     for (index, (left, right)) in pairs.iter().enumerate() {
         if let Ordering::Less = left.cmp(right) {
-            output.push(index);
+            output.push(index + 1);
         }
     }
 
