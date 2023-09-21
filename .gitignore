@@ -2,3 +2,5 @@ target/
 .vscode/
 test.txt
 Cargo.lock
+.replit
+replit.nix
