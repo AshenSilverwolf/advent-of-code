@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
+const ROW_NUM: i32 = 2_000_000;
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 struct Pos {
     x: i32,
@@ -23,6 +25,9 @@ impl Pos {
 
     fn points_within_range(&self, range: i32) -> HashSet<Pos> {
         let mut output: HashSet<Pos> = HashSet::new();
+        // very inefficient method of generating points
+        // to generate a square and remove the corners out of range
+        // change to generate only correct points
         for y in self.y - range..=self.y + range {
             for x in self.x - range..=self.x + range {
                 output.insert(Pos { x, y });
@@ -77,26 +82,53 @@ fn parse_input() -> (Vec<Pair>, HashSet<Sensor>, HashSet<Beacon>) {
     (pairs, sensors, beacons)
 }
 
-fn run_logic(pairs: Vec<Pair>) -> i32 {
-    let mut row_2mil: HashSet<Pos> = HashSet::new();
+fn determine_boundary_values(pairs: &Vec<Pair>) -> (i32, i32) {
+    let mut left_bound: i32 = i32::MAX;
+    let mut right_bound: i32 = i32::MIN;
 
     for (sensor, beacon) in pairs {
-        let dist_to_beacon = sensor.dist(&beacon);
-        let dist_from_2mil = sensor.dist(&Pos {
+        let dist_b = sensor.dist(&beacon);
+        let dist_y = sensor.dist(&Pos {
             x: sensor.x,
-            y: 2_000_000,
+            y: ROW_NUM,
         });
-        if dist_from_2mil > dist_to_beacon {
-            continue;
-        }
-        row_2mil = row_2mil
-            .union(&sensor.points_within_range(dist_to_beacon))
-            .filter(|p| p.y == 2_000_000)
-            .map(|p| p.to_owned())
-            .collect();
+        let d_x = dist_b - dist_y;
+        let left_x = sensor.x - d_x;
+        let right_x = sensor.x + d_x;
+
+        left_bound = if left_x < left_bound {
+            left_x
+        } else {
+            left_bound
+        };
+        right_bound = if right_x > right_bound {
+            right_x
+        } else {
+            right_bound
+        };
     }
 
-    row_2mil.len() as i32
+    (left_bound, right_bound)
+}
+
+fn run_logic(pairs: Vec<Pair>) -> i32 {
+    let (left_bound, right_bound) = determine_boundary_values(&pairs);
+    let mut covered = 0;
+
+    println!("({}, {})", left_bound, right_bound);
+
+    for x in left_bound..=right_bound {
+        let curr_point = Pos { x, y: ROW_NUM };
+        for (sensor, beacon) in &pairs {
+            // need to exclude beacons from this list of "covered" points
+            if sensor.dist(&curr_point) <= sensor.dist(beacon) {
+                covered += 1;
+                break;
+            }
+        }
+    }
+
+    covered
 }
 
 fn main() {
