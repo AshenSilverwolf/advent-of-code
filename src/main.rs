@@ -31,10 +31,6 @@ impl Pos {
 
         output.retain(|pos| self.dist(pos) <= range);
 
-        for item in output.clone() {
-            println!("{item}: {0}", item.dist(self));
-        }
-
         output
     }
 }
@@ -85,15 +81,26 @@ fn run_logic(pairs: Vec<Pair>) -> i32 {
     let mut row_2mil: HashSet<Pos> = HashSet::new();
 
     for (sensor, beacon) in pairs {
-        let dist = sensor.dist(&beacon);
+        let dist_to_beacon = sensor.dist(&beacon);
+        let dist_from_2mil = sensor.dist(&Pos {
+            x: sensor.x,
+            y: 2_000_000,
+        });
+        if dist_from_2mil > dist_to_beacon {
+            continue;
+        }
+        row_2mil = row_2mil
+            .union(&sensor.points_within_range(dist_to_beacon))
+            .filter(|p| p.y == 2_000_000)
+            .map(|p| p.to_owned())
+            .collect();
     }
 
-    0
+    row_2mil.len() as i32
 }
 
 fn main() {
     let (pairs, _sensors, _beacons) = parse_input();
-    // let _num_covered = run_logic(pairs);
-    let test1 = Pos { x: 10, y: 10 };
-    println!("{}", test1.points_within_range(3).len());
+    let num_covered = run_logic(pairs);
+    println!("{num_covered}");
 }
