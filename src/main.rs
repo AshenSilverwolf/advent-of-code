@@ -1,10 +1,13 @@
+use geo::{Coord, Line};
+use intersect2d::{intersect, Intersection};
 use regex::Regex;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-const ROW_NUM: i32 = 2_000_000;
+const MIN_BOUND: f64 = 0.;
+const MAX_BOUND: f64 = 4_000_000.;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 struct Pos {
@@ -23,26 +26,15 @@ impl Pos {
         i32::abs(self.x - other.x) + i32::abs(self.y - other.y)
     }
 
-    // fn points_within_range(&self, range: i32) -> HashSet<Pos> {
-    //     let mut output: HashSet<Pos> = HashSet::new();
-    //     // very inefficient method of generating points
-    //     // to generate a square and remove the corners out of range
-    //     // change to generate only correct points
-    //     for y in self.y - range..=self.y + range {
-    //         for x in self.x - range..=self.x + range {
-    //             output.insert(Pos { x, y });
-    //         }
-    //     }
-
-    //     output.retain(|pos| self.dist(pos) <= range);
-
-    //     output
-    // }
+    fn zero() -> Self {
+        Self { x: 0, y: 0 }
+    }
 }
 
 type Sensor = Pos;
 type Beacon = Pos;
 type Pair = (Sensor, Beacon);
+type LineSeg = (Pos, Pos);
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 where
@@ -82,67 +74,101 @@ fn parse_input() -> (Vec<Pair>, HashSet<Sensor>, HashSet<Beacon>) {
     (pairs, sensors, beacons)
 }
 
-fn determine_boundary_values(pairs: &Vec<Pair>) -> (i32, i32) {
-    let mut left_bound: i32 = i32::MAX;
-    let mut right_bound: i32 = i32::MIN;
+fn generate_border_lines(sensor: &Sensor, range: i32) -> HashSet<LineSeg> {
+    let mut lines: HashSet<LineSeg> = HashSet::new();
 
-    for (sensor, beacon) in pairs {
-        let dist_b = sensor.dist(beacon);
-        let dist_y = sensor.dist(&Pos {
-            x: sensor.x,
-            y: ROW_NUM,
-        });
-        let d_x = dist_b - dist_y;
-        let left_x = sensor.x - d_x;
-        let right_x = sensor.x + d_x;
+    let east = Pos {
+        x: sensor.x + range + 1,
+        y: sensor.y,
+    };
+    let south = Pos {
+        x: sensor.x,
+        y: sensor.y - range - 1,
+    };
+    let west = Pos {
+        x: sensor.x - range - 1,
+        y: sensor.y,
+    };
+    let north = Pos {
+        x: sensor.x,
+        y: sensor.y + range + 1,
+    };
 
-        left_bound = if left_x < left_bound {
-            left_x
-        } else {
-            left_bound
-        };
-        right_bound = if right_x > right_bound {
-            right_x
-        } else {
-            right_bound
-        };
-    }
+    lines.insert((east.clone(), south.clone()));
+    lines.insert((south.clone(), west.clone()));
+    lines.insert((west.clone(), north.clone()));
+    lines.insert((north.clone(), east.clone()));
 
-    (left_bound, right_bound)
+    lines
 }
 
-fn run_logic(pairs: Vec<Pair>) -> i32 {
-    let (left_bound, right_bound) = determine_boundary_values(&pairs);
-    let mut covered = 0;
+fn run_logic(pairs: Vec<Pair>) -> Pos {
+    let mut output: Pos = Pos::zero();
+    let mut lines: HashSet<LineSeg> = HashSet::new();
+    let mut intersections: HashSet<Pos> = HashSet::new();
+    for (sensor, beacon) in &pairs {
+        let border_lines = generate_border_lines(&sensor, sensor.dist(&beacon));
+        lines = lines.union(&border_lines).map(|ls| ls.to_owned()).collect();
+    }
 
-    for x in left_bound..=right_bound {
-        let curr_point = Pos { x, y: ROW_NUM };
+    let lines_iter1 = lines
+        .iter()
+        .map(|(first, second)| {
+            let mut coord1 = Coord::zero();
+            let mut coord2 = Coord::zero();
 
-        let mut is_beacon = false;
-        for (_, beacon) in &pairs {
-            if curr_point == *beacon {
-                is_beacon = true;
-                break;
+            coord1.x = first.x as f64;
+            coord1.y = first.y as f64;
+
+            coord2.x = second.x as f64;
+            coord2.y = second.y as f64;
+
+            Line::new(coord1, coord2)
+        })
+        .collect::<Vec<Line>>();
+    let lines_iter2 = lines_iter1.clone();
+
+    for line1 in &lines_iter1 {
+        for line2 in &lines_iter2 {
+            if line1 == line2 {
+                continue;
             }
-        }
+            let intersection_point = intersect(&line1, &line2);
+            if let Some(Intersection::Intersection(c)) = intersection_point {
+                let within_bounds: bool =
+                    MIN_BOUND <= c.x && c.x <= MAX_BOUND && MIN_BOUND <= c.y && c.y <= MAX_BOUND;
+                if within_bounds {
+                    intersections.insert(Pos {
+                        x: c.x as i32,
+                        y: c.y as i32,
+                    });
+                }
+            } else {
+                continue;
+            }
 
-        if is_beacon {
-            continue;
-        }
-
-        for (sensor, beacon) in &pairs {
-            if sensor.dist(&curr_point) <= sensor.dist(beacon) {
-                covered += 1;
-                break;
+            for point in &intersections {
+                let mut covered = false;
+                for (sensor, beacon) in &pairs {
+                    if point.dist(&sensor) <= sensor.dist(&beacon) {
+                        covered = true;
+                        break;
+                    }
+                }
+                if !covered {
+                    output = point.clone();
+                    break;
+                }
             }
         }
     }
 
-    covered
+    output
 }
 
 fn main() {
     let (pairs, _sensors, _beacons) = parse_input();
-    let num_covered = run_logic(pairs);
-    println!("{num_covered}");
+    let lost_beacon = run_logic(pairs);
+    let tuning_frequency = lost_beacon.x as i64 * MAX_BOUND as i64 + lost_beacon.y as i64;
+    println!("{tuning_frequency}");
 }
