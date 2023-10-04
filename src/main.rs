@@ -103,7 +103,7 @@ fn run_logic(pairs: Vec<Pair>) -> Pos {
     let mut lines: HashSet<LineSeg> = HashSet::new();
     let mut intersections: HashSet<Pos> = HashSet::new();
     for (sensor, beacon) in &pairs {
-        let border_lines = generate_border_lines(&sensor, sensor.dist(&beacon));
+        let border_lines = generate_border_lines(sensor, sensor.dist(beacon));
         lines = lines.union(&border_lines).map(|ls| ls.to_owned()).collect();
     }
 
@@ -129,7 +129,7 @@ fn run_logic(pairs: Vec<Pair>) -> Pos {
             if line1 == line2 {
                 continue;
             }
-            let intersection_point = intersect(&line1, &line2);
+            let intersection_point = intersect(line1, line2);
             if let Some(Intersection::Intersection(c)) = intersection_point {
                 let within_bounds: bool =
                     MIN_BOUND <= c.x && c.x <= MAX_BOUND && MIN_BOUND <= c.y && c.y <= MAX_BOUND;
@@ -146,7 +146,7 @@ fn run_logic(pairs: Vec<Pair>) -> Pos {
             for point in &intersections {
                 let mut covered = false;
                 for (sensor, beacon) in &pairs {
-                    if point.dist(&sensor) <= sensor.dist(&beacon) {
+                    if point.dist(sensor) <= sensor.dist(beacon) {
                         covered = true;
                         break;
                     }
