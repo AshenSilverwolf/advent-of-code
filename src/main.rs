@@ -44,12 +44,10 @@ where
     Ok(io::BufReader::new(file).lines())
 }
 
-fn parse_input() -> (Vec<Pair>, HashSet<Sensor>, HashSet<Beacon>) {
+fn parse_input() -> Vec<Pair> {
     let sep_str = r"Sensor at |, |: closest beacon is at ";
     let seperator = Regex::new(sep_str).expect("Invalid regex");
     let mut pairs: Vec<(Sensor, Beacon)> = vec![];
-    let mut sensors: HashSet<Sensor> = HashSet::new();
-    let mut beacons: HashSet<Beacon> = HashSet::new();
     if let Ok(lines) = read_lines("test.txt") {
         for line in lines.into_iter().flatten() {
             let splits: Vec<i32> = seperator
@@ -65,13 +63,11 @@ fn parse_input() -> (Vec<Pair>, HashSet<Sensor>, HashSet<Beacon>) {
                 x: splits[2],
                 y: splits[3],
             };
-            sensors.insert(sensor.clone());
-            beacons.insert(beacon.clone());
             pairs.push((sensor, beacon));
         }
     }
 
-    (pairs, sensors, beacons)
+    pairs
 }
 
 fn generate_border_lines(sensor: &Sensor, range: i32) -> HashSet<LineSeg> {
@@ -167,7 +163,7 @@ fn run_logic(pairs: Vec<Pair>) -> Pos {
 }
 
 fn main() {
-    let (pairs, _sensors, _beacons) = parse_input();
+    let pairs = parse_input();
     let lost_beacon = run_logic(pairs);
     let tuning_frequency = lost_beacon.x as i64 * MAX_BOUND as i64 + lost_beacon.y as i64;
     println!("{tuning_frequency}");
