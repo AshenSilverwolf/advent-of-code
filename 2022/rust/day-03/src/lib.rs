@@ -13,7 +13,7 @@ pub fn process_part1(input: &str) -> String {
 		.map(|n| match n {
             b'a'..=b'z' => n - b'a',
             b'A'..=b'Z' => n - b'A' + 26,
-            _ => panic!("Not alphabetical"),
+            _ => unreachable!("Input must only be alphabetical"),
         } + 1)
         .map(u32::from)
         .sum();
@@ -28,7 +28,7 @@ pub fn process_part2(input: &str) -> String {
         .collect::<Vec<HashSet<u8>>>()
         .chunks_exact(3)
         .map(|chunk| {
-            let [first, second, third] = chunk else { panic!() };
+            let [first, second, third] = chunk else { unreachable!() };
             let first_second_intersect: HashSet<u8> = first.intersection(second).copied().collect();
             let common = first_second_intersect.intersection(third).next().unwrap();
             *common
@@ -36,7 +36,7 @@ pub fn process_part2(input: &str) -> String {
         .map(|n| match n {
             b'a'..=b'z' => n - b'a',
             b'A'..=b'Z' => n - b'A' + 26,
-            _ => panic!("Not alphabetical"),
+            _ => unreachable!("Input must only be alphabetical"),
         } + 1)
         .map(u32::from)
         .sum();
