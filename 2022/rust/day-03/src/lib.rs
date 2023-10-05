@@ -79,7 +79,21 @@ pub fn process_part1(input: &str) -> String {
 }
 
 pub fn process_part2(input: &str) -> String {
-    "two".to_string()
+    let result: u32 = input
+        .lines()
+        .map(str::chars)
+        .map(HashSet::from_iter)
+        .collect::<Vec<HashSet<char>>>()
+        .chunks_exact(3)
+        .map(|chunk| {
+            let [first, second, third] = chunk else { panic!() };
+            let first_second_intersect: HashSet<char> =
+                first.intersection(second).copied().collect();
+            let common = first_second_intersect.intersection(third).next().unwrap();
+            get_priority_from_char(common).unwrap()
+        })
+        .sum();
+    result.to_string()
 }
 
 #[cfg(test)]
@@ -100,7 +114,6 @@ CrZsJsPPZsGzwwsLwLmpwMDw";
     }
 
     #[test]
-    #[ignore]
     fn part2_works() {
         let result = process_part2(INPUT);
         assert_eq!(result, "70");
