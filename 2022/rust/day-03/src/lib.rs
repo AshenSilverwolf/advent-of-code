@@ -13,7 +13,7 @@ pub fn process_part1(input: &str) -> String {
 		.map(|n| match n {
             b'a'..=b'z' => n - b'a',
             b'A'..=b'Z' => n - b'A' + 26,
-            _ => unreachable!("Input must only be alphabetical"),
+            _ => panic!("Input must only be alphabetical"),
         } + 1)
         .map(u32::from)
         .sum();
@@ -36,7 +36,7 @@ pub fn process_part2(input: &str) -> String {
         .map(|n| match n {
             b'a'..=b'z' => n - b'a',
             b'A'..=b'Z' => n - b'A' + 26,
-            _ => unreachable!("Input must only be alphabetical"),
+            _ => panic!("Input must only be alphabetical"),
         } + 1)
         .map(u32::from)
         .sum();
