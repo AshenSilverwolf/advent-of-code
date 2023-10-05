@@ -62,17 +62,11 @@ pub fn process_part1(input: &str) -> String {
     let result: u32 = input
         .lines()
         .map(|s| {
-            let mut front_set: HashSet<char> = HashSet::new();
-            let mut back_set: HashSet<char> = HashSet::new();
             let (front, back) = s.split_at(s.len() / 2);
-            for c in front.chars() {
-                front_set.insert(c);
-            }
-            for c in back.chars() {
-                back_set.insert(c);
-            }
-            let intersect = front_set.intersection(&back_set).next().unwrap();
-            get_priority_from_char(intersect).unwrap()
+            let front_set: HashSet<char> = HashSet::from_iter(front.chars());
+            let back_set: HashSet<char> = HashSet::from_iter(back.chars());
+            let common = front_set.intersection(&back_set).next().unwrap();
+            get_priority_from_char(common).unwrap()
         })
         .sum();
     result.to_string()
