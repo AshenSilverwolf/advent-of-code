@@ -3,22 +3,22 @@ use std::ops::RangeInclusive;
 
 type RangePair = (RangeInclusive<u32>, RangeInclusive<u32>);
 
-fn sections(input: &str) -> IResult<&str, RangeInclusive<u32>> {
+fn range(input: &str) -> IResult<&str, RangeInclusive<u32>> {
     let (input, start) = complete::u32(input)?;
     let (input, _) = tag("-")(input)?;
     let (input, end) = complete::u32(input)?;
     Ok((input, start..=end))
 }
 
-fn line(input: &str) -> IResult<&str, RangePair> {
-    let (input, start) = sections(input)?;
+fn range_pair(input: &str) -> IResult<&str, RangePair> {
+    let (input, first) = range(input)?;
     let (input, _) = tag(",")(input)?;
-    let (input, end) = sections(input)?;
-    Ok((input, (start, end)))
+    let (input, second) = range(input)?;
+    Ok((input, (first, second)))
 }
 
 fn section_assignments(input: &str) -> IResult<&str, Vec<RangePair>> {
-    let (input, ranges) = nom::multi::separated_list1(complete::newline, line)(input)?;
+    let (input, ranges) = nom::multi::separated_list1(complete::newline, range_pair)(input)?;
     Ok((input, ranges))
 }
 
