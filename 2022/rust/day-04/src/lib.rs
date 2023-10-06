@@ -1,5 +1,4 @@
 use nom::{bytes::complete::tag, character::complete, IResult};
-use std::collections::HashSet;
 use std::ops::RangeInclusive;
 
 type RangePair = (RangeInclusive<u32>, RangeInclusive<u32>);
@@ -37,27 +36,15 @@ pub fn process_part1(input: &str) -> String {
 }
 
 pub fn process_part2(input: &str) -> String {
-    let result: u32 = input
-        .lines()
-        .map(|s| {
-            let mut zones = s.split(',');
-            let first: &str = zones.next().unwrap();
-            let second: &str = zones.next().unwrap();
-            let mut zone_one = first.split('-');
-            let mut zone_two = second.split('-');
-            let one_one: u32 = zone_one.next().unwrap().parse::<u32>().unwrap();
-            let one_two: u32 = zone_one.next().unwrap().parse::<u32>().unwrap();
-            let two_one: u32 = zone_two.next().unwrap().parse::<u32>().unwrap();
-            let two_two: u32 = zone_two.next().unwrap().parse::<u32>().unwrap();
-            let set_one: HashSet<u32> = (one_one..=one_two).collect::<HashSet<u32>>();
-            let set_two: HashSet<u32> = (two_one..=two_two).collect::<HashSet<u32>>();
-            if set_one.intersection(&set_two).count() > 0 {
-                1
-            } else {
-                0
-            }
+    let (_, assignments) = section_assignments(input).unwrap();
+    let result = assignments
+        .iter()
+        .filter(|(range_a, range_b)| {
+            let a_contains_b = range_a.clone().any(|num| range_b.contains(&num));
+            let b_contains_a = range_b.clone().any(|num| range_a.contains(&num));
+            a_contains_b || b_contains_a
         })
-        .sum();
+        .count();
     result.to_string()
 }
 
