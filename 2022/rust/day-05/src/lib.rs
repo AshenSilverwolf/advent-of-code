@@ -98,7 +98,26 @@ pub fn process_part1(input: &str) -> String {
 }
 
 pub fn process_part2(input: &str) -> String {
-    "two".to_string()
+    let (_, (mut crate_stacks, commands)) = stacks_and_commands(input).unwrap();
+    for Command { count, from, to } in commands {
+        let len = crate_stacks[from as usize].len();
+        for c in crate_stacks[from as usize]
+            .drain((len - count as usize)..)
+            .collect::<Vec<&str>>()
+        {
+            crate_stacks[to as usize].push(c);
+        }
+    }
+
+    let result: String = crate_stacks
+        .iter()
+        .map(|v| match v.iter().last() {
+            Some(c) => c,
+            None => "",
+        })
+        .collect();
+
+    result.to_string()
 }
 
 #[cfg(test)]
@@ -122,7 +141,6 @@ move 1 from 1 to 2";
     }
 
     #[test]
-    #[ignore]
     fn part2_works() {
         let result = process_part2(INPUT);
         assert_eq!(result, "MCD");
