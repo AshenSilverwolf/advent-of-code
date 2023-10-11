@@ -33,7 +33,7 @@ pub fn process_part1(input: &str) -> String {
         })
         .collect();
 
-    // iterations for Xs
+    // Left to Right
     for y in 0..trees.len() {
         let mut current_tree_size = 0;
         for x in 0..trees[0].len() {
@@ -46,6 +46,7 @@ pub fn process_part1(input: &str) -> String {
         }
     }
 
+    // Right to Left
     for y in 0..trees.len() {
         let mut current_tree_size = 0;
         for x in (0..trees[0].len()).rev() {
@@ -58,7 +59,7 @@ pub fn process_part1(input: &str) -> String {
         }
     }
 
-    // iterations for Ys
+    // Top to Bottom
     for x in 0..trees.len() {
         let mut current_tree_size = 0;
         for y in 0..trees[0].len() {
@@ -71,6 +72,7 @@ pub fn process_part1(input: &str) -> String {
         }
     }
 
+    // Bottom to Top
     for x in 0..trees.len() {
         let mut current_tree_size = 0;
         for y in (0..trees[0].len()).rev() {
@@ -91,9 +93,44 @@ pub fn process_part1(input: &str) -> String {
         .to_string()
 }
 
+fn calculate_directional_scenic_score(cell: &u32, treeline: &[u32]) -> u32 {
+    let mut score: u32 = 0;
+    for x in treeline {
+        score += 1;
+        if x >= cell {
+            break;
+        }
+    }
+
+    score
+}
+
 pub fn process_part2(input: &str) -> String {
     let (_, trees) = parse_trees(input).unwrap();
-    todo!("not done");
+    let mut high_score: u32 = 0;
+
+    for r in 1..(trees.len() - 1) {
+        for c in 1..(trees[0].len() - 1) {
+            let curr = &trees[r][c];
+            let east: Vec<u32> = trees[r][c + 1..].to_vec();
+            let south: Vec<u32> = trees[r + 1..].iter().map(|v| v[c]).collect();
+            let west: Vec<u32> = trees[r][..c].iter().cloned().rev().collect();
+            let north: Vec<u32> = trees[..r].iter().rev().map(|v| v[c]).collect();
+
+            let mut scores = vec![0, 0, 0, 0];
+            for (i, treeline) in [east, south, west, north].iter().enumerate() {
+                scores[i] = calculate_directional_scenic_score(curr, treeline);
+            }
+
+            let cell_score: u32 = scores.iter().product();
+
+            if cell_score > high_score {
+                high_score = cell_score;
+            }
+        }
+    }
+
+    high_score.to_string()
 }
 
 #[cfg(test)]
@@ -112,7 +149,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn part2_works() {
         assert_eq!(process_part2(INPUT), "8");
     }
