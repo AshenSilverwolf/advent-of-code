@@ -1,15 +1,18 @@
 use nom::{
-    character::complete::{digit1, newline},
-    multi::separated_list1,
+    character::complete::{anychar, newline},
+    combinator::verify,
+    multi::{many1, separated_list1},
     *,
 };
 
-fn parse_trees(input: &str) -> IResult<&str, Vec<Vec<u32>>> {
-    let (input, vecs) = separated_list1(
-        newline,
-        digit1.map(|nums: &str| nums.chars().map(|num| num.to_digit(10).unwrap()).collect()),
-    )(input)?;
+fn a_num(input: &str) -> IResult<&str, u32> {
+    let (input, c) = verify(anychar, |c| c.is_ascii_digit())(input)?;
+    let number = c.to_digit(10).unwrap();
+    Ok((input, number))
+}
 
+fn parse_trees(input: &str) -> IResult<&str, Vec<Vec<u32>>> {
+    let (input, vecs) = separated_list1(newline, many1(a_num))(input)?;
     Ok((input, vecs))
 }
 
