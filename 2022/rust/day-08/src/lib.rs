@@ -1,5 +1,3 @@
-use std::thread::current;
-
 use nom::{
     character::complete::{digit1, newline},
     multi::separated_list1,
@@ -15,82 +13,41 @@ fn parse_trees(input: &str) -> IResult<&str, Vec<Vec<u32>>> {
     Ok((input, vecs))
 }
 
+fn is_visible(cell: &u32, treeline: &[u32]) -> bool {
+    for x in treeline {
+        if x >= cell {
+            return false;
+        }
+    }
+
+    true
+}
+
 pub fn process_part1(input: &str) -> String {
     let (_, trees) = parse_trees(input).unwrap();
-    let max_length = trees.len() - 1;
-    let mut visible_trees: Vec<Vec<bool>> = trees
-        .iter()
-        .enumerate()
-        .map(|(i, tree_line)| {
-            let line_max_length = tree_line.len() - 1;
-            tree_line
-                .iter()
-                .enumerate()
-                .map(|(line_i, _)| {
-                    i == 0 || i == max_length || line_i == 0 || line_i == line_max_length
-                })
-                .collect()
-        })
-        .collect();
+    let (width, height) = (trees[0].len(), trees.len());
+    let mut num_visible = (width * 2) + (height * 2) - 4; // all edge trees are visible by default
 
-    // Left to Right
-    for y in 0..trees.len() {
-        let mut current_tree_size = 0;
-        for x in 0..trees[0].len() {
-            if x == 0 {
-                current_tree_size = trees[y][x];
-            } else if trees[y][x] > current_tree_size {
-                current_tree_size = trees[y][x];
-                visible_trees[y][x] = true;
+    for r in 1..height - 1 {
+        for c in 1..width - 1 {
+            let curr = &trees[r][c];
+            let east: Vec<u32> = trees[r][c + 1..].to_vec();
+            let south: Vec<u32> = trees[r + 1..].iter().map(|v| v[c]).collect();
+            let west: Vec<u32> = trees[r][..c].iter().cloned().rev().collect();
+            let north: Vec<u32> = trees[..r].iter().rev().map(|v| v[c]).collect();
+
+            let mut visibility = vec![false, false, false, false];
+            for (i, treeline) in [east, south, west, north].iter().enumerate() {
+                visibility[i] = is_visible(curr, treeline);
+            }
+
+            if visibility.iter().any(|&v| v) {
+                num_visible += 1;
             }
         }
     }
 
-    // Right to Left
-    for y in 0..trees.len() {
-        let mut current_tree_size = 0;
-        for x in (0..trees[0].len()).rev() {
-            if x == trees.len() - 1 {
-                current_tree_size = trees[y][x];
-            } else if trees[y][x] > current_tree_size {
-                current_tree_size = trees[y][x];
-                visible_trees[y][x] = true;
-            }
-        }
-    }
-
-    // Top to Bottom
-    for x in 0..trees.len() {
-        let mut current_tree_size = 0;
-        for y in 0..trees[0].len() {
-            if y == 0 {
-                current_tree_size = trees[y][x];
-            } else if trees[y][x] > current_tree_size {
-                current_tree_size = trees[y][x];
-                visible_trees[y][x] = true;
-            }
-        }
-    }
-
-    // Bottom to Top
-    for x in 0..trees.len() {
-        let mut current_tree_size = 0;
-        for y in (0..trees[0].len()).rev() {
-            if y == trees.len() - 1 {
-                current_tree_size = trees[y][x];
-            } else if trees[y][x] > current_tree_size {
-                current_tree_size = trees[y][x];
-                visible_trees[y][x] = true;
-            }
-        }
-    }
-
-    visible_trees
-        .iter()
-        .flatten()
-        .filter(|&&v| v)
-        .count()
-        .to_string()
+    num_visible.to_string()
 }
 
 fn calculate_directional_scenic_score(cell: &u32, treeline: &[u32]) -> u32 {
