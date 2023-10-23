@@ -1,9 +1,9 @@
-use nom::*;
-use nom::multi::separated_list1;
-use nom::combinator::{opt, map_res};
 use nom::branch::alt;
-use nom::character::complete::{newline, digit1};
 use nom::bytes::complete::tag;
+use nom::character::complete::{digit1, newline};
+use nom::combinator::{map_res, opt};
+use nom::multi::separated_list1;
+use nom::*;
 
 #[derive(Debug)]
 enum Operation {
@@ -35,11 +35,31 @@ fn operations(input: &str) -> IResult<&str, Vec<Operation>> {
 
 pub fn process_part1(input: &str) -> String {
     let (_, operations) = operations(input).unwrap(); // valid
-    dbg!(&operations);
-    "one".to_string()
+    let key_cycles: Vec<i32> = vec![20, 60, 100, 140, 180, 220];
+    let mut key_values = vec![];
+    let mut register: i32 = 1;
+
+    let mut cycle: i32 = 0;
+    for op in operations {
+        cycle += 1;
+        if key_cycles.contains(&cycle) {
+            key_values.push((register, cycle));
+        }
+        if let Operation::Addx(num) = op {
+            cycle += 1;
+            if key_cycles.contains(&cycle) {
+                key_values.push((register, cycle));
+            }
+            register += num;
+        }
+    }
+
+    let output: i32 = key_values.iter().map(|(val, cycle)| val * cycle).sum();
+
+    output.to_string()
 }
 
-pub fn process_part2(input: &str) -> String {
+pub fn process_part2(_input: &str) -> String {
     "two".to_string()
 }
 
@@ -194,8 +214,21 @@ noop
 noop
 noop";
 
+    const OUTPUT: &str = "##..##..##..##..##..##..##..##..##..##..
+###...###...###...###...###...###...###.
+####....####....####....####....####....
+#####.....#####.....#####.....#####.....
+######......######......######......####
+#######.......#######.......#######.....";
+
     #[test]
     fn part1_works() {
         assert_eq!(process_part1(INPUT), "13140");
+    }
+
+    #[test]
+    #[ignore]
+    fn part2_works() {
+        assert_eq!(process_part2(INPUT), OUTPUT.to_string());
     }
 }
