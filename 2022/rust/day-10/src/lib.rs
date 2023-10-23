@@ -10,11 +10,7 @@ pub fn process_part2(input: &str) -> String {
 mod tests {
     use super::*;
 
-    const INPUT_1: &str = "noop
-addx 3
-addx -5";
-
-    const INPUT_2: &str = "addx 15
+    const INPUT: &str = "addx 15
 addx -11
 addx 6
 addx -3
@@ -163,12 +159,6 @@ noop";
 
     #[test]
     fn part1_works() {
-        assert_eq!(process_part1(INPUT_1), "13");
-    }
-
-    #[test]
-    #[ignore]
-    fn part2_works() {
-        assert_eq!(process_part2(INPUT_2), "36");
+        assert_eq!(process_part1(INPUT), "13140");
     }
 }
