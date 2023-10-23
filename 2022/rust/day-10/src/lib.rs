@@ -1,4 +1,41 @@
+use nom::*;
+use nom::multi::separated_list1;
+use nom::combinator::{opt, map_res};
+use nom::branch::alt;
+use nom::character::complete::{newline, digit1};
+use nom::bytes::complete::tag;
+
+#[derive(Debug)]
+enum Operation {
+    Addx(i32),
+    Noop,
+}
+
+fn addx(input: &str) -> IResult<&str, Operation> {
+    let (input, _) = tag("addx ")(input)?;
+    let (input, minus) = opt(tag("-"))(input)?;
+    let (input, mut number) = map_res(digit1, str::parse)(input)?;
+    if minus.is_some() {
+        number *= -1;
+    }
+    Ok((input, Operation::Addx(number)))
+}
+
+fn noop(input: &str) -> IResult<&str, Operation> {
+    let (input, _) = tag("noop")(input)?;
+
+    Ok((input, Operation::Noop))
+}
+
+fn operations(input: &str) -> IResult<&str, Vec<Operation>> {
+    let (input, ops) = separated_list1(newline, alt((addx, noop)))(input)?;
+
+    Ok((input, ops))
+}
+
 pub fn process_part1(input: &str) -> String {
+    let (_, operations) = operations(input).unwrap(); // valid
+    dbg!(&operations);
     "one".to_string()
 }
 
