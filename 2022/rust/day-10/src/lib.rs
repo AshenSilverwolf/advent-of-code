@@ -1,41 +1,36 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{digit1, newline};
+use nom::character::complete::{self, digit1, newline};
 use nom::combinator::{map_res, opt};
 use nom::multi::separated_list1;
 use nom::*;
 
 #[derive(Debug)]
 enum Operation {
-    Addx(i32),
+    Add(i32),
     Noop,
 }
+use nom::sequence::preceded;
+use Operation::*;
 
 fn addx(input: &str) -> IResult<&str, Operation> {
-    let (input, _) = tag("addx ")(input)?;
-    let (input, minus) = opt(tag("-"))(input)?;
-    let (input, mut number) = map_res(digit1, str::parse)(input)?;
-    if minus.is_some() {
-        number *= -1;
-    }
-    Ok((input, Operation::Addx(number)))
+    let (input, num) = preceded(tag("addx "), complete::i32)(input)?;
+    Ok((input, Add(num)))
 }
 
 fn noop(input: &str) -> IResult<&str, Operation> {
     let (input, _) = tag("noop")(input)?;
-
-    Ok((input, Operation::Noop))
+    Ok((input, Noop))
 }
 
 fn operations(input: &str) -> IResult<&str, Vec<Operation>> {
     let (input, ops) = separated_list1(newline, alt((addx, noop)))(input)?;
-
     Ok((input, ops))
 }
 
 pub fn process_part1(input: &str) -> String {
     let (_, operations) = operations(input).unwrap(); // valid
-    let key_cycles: Vec<i32> = vec![20, 60, 100, 140, 180, 220];
+    let key_cycles = [20, 60, 100, 140, 180, 220];
     let mut key_values = vec![];
     let mut register: i32 = 1;
 
@@ -45,12 +40,15 @@ pub fn process_part1(input: &str) -> String {
         if key_cycles.contains(&cycle) {
             key_values.push((register, cycle));
         }
-        if let Operation::Addx(num) = op {
+        if let Add(num) = op {
             cycle += 1;
             if key_cycles.contains(&cycle) {
                 key_values.push((register, cycle));
             }
             register += num;
+        }
+        if cycle > 220 {
+            break;
         }
     }
 
@@ -59,7 +57,35 @@ pub fn process_part1(input: &str) -> String {
     output.to_string()
 }
 
-pub fn process_part2(_input: &str) -> String {
+pub fn process_part2(input: &str) -> String {
+    let operations = operations(input).unwrap().1;
+    let mut ops_iter = operations.into_iter();
+    let mut register: i32 = 1;
+    let mut cycle = 0;
+    let mut state = Noop;
+    let mut adding = false;
+    let mut crt_pixels: Vec<&str> = vec![];
+
+    while cycle <= 240 {
+        cycle += 1;
+        // START
+        match (state, adding) {
+            (Noop, _) => {
+                state = ops_iter.next().unwrap();
+            }
+            (Add(num), false) => {
+                state = ops_iter.next().unwrap();
+            }
+            _ => {}
+        };
+        // DURING
+
+        // END
+
+        state = ops_iter.next().unwrap();
+        let sprite = [register - 1, register, register + 1];
+    }
+
     "two".to_string()
 }
 
