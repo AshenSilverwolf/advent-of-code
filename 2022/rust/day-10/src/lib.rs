@@ -3,6 +3,7 @@ use nom::{
     bytes::complete::tag,
     character::complete::{self, newline},
     multi::separated_list1,
+    sequence::preceded,
     *,
 };
 use std::collections::HashMap;
@@ -11,9 +12,7 @@ use std::collections::HashMap;
 enum Operation {
     Add(i32),
     Noop,
-    Empty,
 }
-use nom::sequence::preceded;
 use Operation::*;
 
 fn addx(input: &str) -> IResult<&str, Operation> {
@@ -63,13 +62,13 @@ pub fn process_part1(input: &str) -> String {
 }
 
 fn draw(crt_display: &mut [Vec<char>], cycle: &i32, register: &i32) {
-    let pixels = (register - 1)..(register + 1);
+    let pixels = (register - 1)..=(register + 1);
     let row = (cycle / 40) as usize;
     let col = (cycle % 40) as usize;
-    dbg!(format!("{}, {}, {}", row, col, cycle));
-    crt_display[row].push(match pixels.contains(cycle) {
-        true => '#',
-        false => '.',
+    dbg!(cycle, register, row, col);
+    crt_display[row].push(match pixels.contains(&(col as i32)) {
+        true => dbg!('#'),
+        false => dbg!('.'),
     });
 }
 
@@ -83,24 +82,12 @@ pub fn process_part2(input: &str) -> String {
     let mut register: i32 = 1;
     let mut cycle = 0;
     let mut curr_op = ops_iter.next().unwrap();
-    let mut last_op = Empty;
+    let mut second_cycle = false;
 
     while cycle < 240 {
-        //* If new op, Begin execution of operation
-        // if curr_op != last_op {
-        //     // match curr_op {
-        //     //     Add(num) => {}
-        //     //     _ => {}
-        //     // }
-        // }
-
-        //* Draw on CRT
         draw(&mut crt_display, &cycle, &register);
 
-        //* increment the cycle; finish execution of operation
         cycle += 1;
-        let second_cycle = last_op == curr_op;
-        last_op = curr_op.clone();
         if let Noop = curr_op {
             if let Some(new_op) = ops_iter.next() {
                 curr_op = new_op;
@@ -111,6 +98,9 @@ pub fn process_part2(input: &str) -> String {
             if let Some(new_op) = ops_iter.next() {
                 curr_op = new_op;
             }
+            second_cycle = false;
+        } else {
+            second_cycle = true;
         }
     }
 
@@ -276,7 +266,8 @@ noop";
 ####....####....####....####....####....
 #####.....#####.....#####.....#####.....
 ######......######......######......####
-#######.......#######.......#######.....";
+#######.......#######.......#######.....
+";
 
     #[test]
     fn part1_works() {
@@ -286,6 +277,8 @@ noop";
     #[test]
     // #[ignore]
     fn part2_works() {
+        println!("{}", process_part2(INPUT));
+        println!("{}", OUTPUT);
         assert_eq!(process_part2(INPUT), OUTPUT.to_string());
     }
 }
