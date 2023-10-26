@@ -11,7 +11,7 @@ use std::collections::VecDeque;
 #[derive(Debug, Clone)]
 enum Value {
     Old,
-    Num(u8),
+    Num(u64),
 }
 
 #[derive(Debug, Clone)]
@@ -22,9 +22,9 @@ enum Operation {
 
 #[derive(Debug, Clone)]
 struct Test {
-    divisible: u8,
-    if_true: u8,
-    if_false: u8,
+    divisible: u64,
+    if_true: u64,
+    if_false: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -32,14 +32,14 @@ struct Monkey {
     items: VecDeque<u128>,
     operation: Operation,
     test: Test,
-    touch_count: u32,
+    touch_count: u64,
 }
 
 impl Monkey {
-    fn inspect(&mut self) -> u128 {
+    fn inspect(&mut self, magic_number: u128) -> u128 {
         self.touch_count += 1;
         let item = self.items.pop_front().unwrap();
-        match &self.operation {
+        let result = match &self.operation {
             Operation::Mult((a, b)) => {
                 let num_a = match a {
                     Value::Old => item,
@@ -62,7 +62,9 @@ impl Monkey {
                 };
                 num_a + num_b
             }
-        }
+        };
+
+        result % magic_number
     }
 
     fn test(&self, item: u128) -> usize {
@@ -84,7 +86,7 @@ fn items(input: &str) -> IResult<&str, VecDeque<u128>> {
 }
 
 fn value(input: &str) -> IResult<&str, Value> {
-    alt((tag("old").map(|_| Value::Old), complete::u8.map(Value::Num)))(input)
+    alt((tag("old").map(|_| Value::Old), complete::u64.map(Value::Num)))(input)
 }
 
 fn operation(input: &str) -> IResult<&str, Operation> {
@@ -103,10 +105,10 @@ fn operation(input: &str) -> IResult<&str, Operation> {
 
 fn test(input: &str) -> IResult<&str, Test> {
     let (input, divisible) =
-        delimited(tag("Test: divisible by "), complete::u8, multispace1)(input)?;
+        delimited(tag("Test: divisible by "), complete::u64, multispace1)(input)?;
     let (input, if_true) =
-        delimited(tag("If true: throw to monkey "), complete::u8, multispace1)(input)?;
-    let (input, if_false) = preceded(tag("If false: throw to monkey "), complete::u8)(input)?;
+        delimited(tag("If true: throw to monkey "), complete::u64, multispace1)(input)?;
+    let (input, if_false) = preceded(tag("If false: throw to monkey "), complete::u64)(input)?;
 
     let result = Test {
         divisible,
@@ -118,7 +120,7 @@ fn test(input: &str) -> IResult<&str, Test> {
 }
 
 fn monkey(input: &str) -> IResult<&str, Monkey> {
-    let (input, _id) = delimited(tag("Monkey "), complete::u8, tag(":"))(input)?;
+    let (input, _id) = delimited(tag("Monkey "), complete::u64, tag(":"))(input)?;
     let (input, _) = multispace1(input)?;
     let (input, items) = items(input)?;
     let (input, _) = multispace1(input)?;
@@ -140,13 +142,18 @@ fn monkey(input: &str) -> IResult<&str, Monkey> {
 pub fn process_part1(input: &str) -> String {
     let (_input, mut monkeys) = separated_list1(tag("\n\n"), monkey)(input).unwrap();
     let num_monkeys = monkeys.len();
+    let magic_number: u128 = monkeys
+        .iter()
+        .map(|monkey| monkey.test.divisible)
+        .product::<u64>()
+        .into();
 
     for _round in 0..20 {
         // 20 rounds
         for monkey_index in 0..num_monkeys {
             for _ in 0..monkeys[monkey_index].items.len() {
                 let monkey = monkeys.get_mut(monkey_index).unwrap();
-                let mut item = monkey.inspect();
+                let mut item = monkey.inspect(magic_number);
                 item /= 3;
                 let destination_monkey = monkey.test(item);
                 monkeys
@@ -159,9 +166,9 @@ pub fn process_part1(input: &str) -> String {
     }
 
     monkeys.sort_by_key(|monkey| monkey.touch_count);
-    let monkey_business: u32 = monkeys
+    let monkey_business: u64 = monkeys
         .iter()
-        .map(|monkey| dbg!(monkey.touch_count))
+        .map(|monkey| monkey.touch_count)
         .rev()
         .take(2)
         .product();
@@ -169,8 +176,40 @@ pub fn process_part1(input: &str) -> String {
     monkey_business.to_string()
 }
 
-pub fn process_part2(_input: &str) -> String {
-    "two".to_string()
+pub fn process_part2(input: &str) -> String {
+    let (_input, mut monkeys) = separated_list1(tag("\n\n"), monkey)(input).unwrap();
+    let num_monkeys = monkeys.len();
+    let magic_number: u128 = monkeys
+        .iter()
+        .map(|monkey| monkey.test.divisible)
+        .product::<u64>()
+        .into();
+
+    for _round in 0..10_000 {
+        // 20 rounds
+        for monkey_index in 0..num_monkeys {
+            for _ in 0..monkeys[monkey_index].items.len() {
+                let monkey = monkeys.get_mut(monkey_index).unwrap();
+                let item = monkey.inspect(magic_number);
+                let destination_monkey = monkey.test(item);
+                monkeys
+                    .get_mut(destination_monkey)
+                    .unwrap()
+                    .items
+                    .push_back(item);
+            }
+        }
+    }
+
+    monkeys.sort_by_key(|monkey| monkey.touch_count);
+    let monkey_business: u64 = monkeys
+        .iter()
+        .map(|monkey| monkey.touch_count)
+        .rev()
+        .take(2)
+        .product();
+
+    monkey_business.to_string()
 }
 
 #[cfg(test)]
@@ -211,7 +250,6 @@ Monkey 3:
     }
 
     #[test]
-    #[ignore]
     fn part2_works() {
         assert_eq!(process_part2(INPUT), "2713310158");
     }
