@@ -5,6 +5,8 @@ use nom::{
 };
 use pathfinding::prelude::astar;
 
+type Grid = Vec<Vec<i32>>;
+
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 struct Pos(usize, usize);
 
@@ -17,7 +19,7 @@ impl Pos {
         (self.0.abs_diff(other.0) + self.1.abs_diff(other.1)) as u32
     }
 
-    fn successors(&self, grid: &Vec<Vec<i32>>) -> Vec<(Pos, u32)> {
+    fn successors(&self, grid: &Grid) -> Vec<(Pos, u32)> {
         let &Pos(this_r, this_c) = self;
         [
             this_r.checked_sub(1).map(|diff| Pos(diff, this_c)),
@@ -35,8 +37,8 @@ impl Pos {
     }
 }
 
-fn grid(input: &str) -> IResult<&str, Vec<Vec<i32>>> {
-    separated_list1(
+fn grid_start_end(input: &str) -> IResult<&str, (Grid, Pos, Pos)> {
+    let (_, mut grid) = separated_list1(
         newline,
         alpha1.map(|chars: &str| {
             chars
@@ -46,13 +48,10 @@ fn grid(input: &str) -> IResult<&str, Vec<Vec<i32>>> {
                     'E' => -1,
                     _ => c as i32 - 96,
                 })
-                .collect()
+                .collect::<Vec<i32>>()
         }),
-    )(input)
-}
+    )(input)?;
 
-fn grid_and_endpoints(input: &str) -> IResult<&str, (Vec<Vec<i32>>, Pos, Pos)> {
-    let (input, mut grid) = grid(input)?;
     let mut start = Pos::new();
     let mut end = Pos::new();
     for (r, row) in grid.iter_mut().enumerate() {
@@ -70,8 +69,39 @@ fn grid_and_endpoints(input: &str) -> IResult<&str, (Vec<Vec<i32>>, Pos, Pos)> {
     Ok((input, (grid, start, end)))
 }
 
+fn grid_with_multiple_starts(input: &str) -> IResult<&str, (Grid, Vec<Pos>, Pos)> {
+    let (_, mut grid) = separated_list1(
+        newline,
+        alpha1.map(|chars: &str| {
+            chars
+                .chars()
+                .map(|c| match c {
+                    'S' => 1,
+                    'E' => -1,
+                    _ => c as i32 - 96,
+                })
+                .collect::<Vec<i32>>()
+        }),
+    )(input)?;
+
+    let mut starts: Vec<Pos> = vec![];
+    let mut end = Pos::new();
+    for (r, row) in grid.iter_mut().enumerate() {
+        for (c, col) in row.iter_mut().enumerate() {
+            if *col == 1 {
+                starts.push(Pos(r, c));
+            } else if *col == -1 {
+                end = Pos(r, c);
+                *col = 26;
+            }
+        }
+    }
+
+    Ok((input, (grid, starts, end)))
+}
+
 pub fn process_part1(input: &str) -> String {
-    let (_, (grid, start, end)) = grid_and_endpoints(input).unwrap();
+    let (_, (grid, start, end)) = grid_start_end(input).unwrap();
     astar(
         &start,
         |p| p.successors(&grid),
@@ -83,8 +113,23 @@ pub fn process_part1(input: &str) -> String {
     .to_string()
 }
 
-pub fn process_part2(_input: &str) -> String {
-    "two".to_string()
+pub fn process_part2(input: &str) -> String {
+    let (_, (grid, starts, end)) = grid_with_multiple_starts(input).unwrap();
+
+    starts
+        .iter()
+        .map(|start| {
+            astar(
+                start,
+                |p| p.successors(&grid),
+                |p| p.distance(&end),
+                |p| *p == end,
+            )
+        })
+        .filter_map(|res| res.map(|(_path, dist)| dist))
+        .min()
+        .unwrap()
+        .to_string()
 }
 
 #[cfg(test)]
@@ -103,7 +148,6 @@ abdefghi";
     }
 
     #[test]
-    #[ignore]
     fn part2_works() {
         assert_eq!(process_part2(INPUT), "29");
     }
