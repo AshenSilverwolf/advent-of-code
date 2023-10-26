@@ -1,52 +1,90 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{self, multispace1, newline},
+    character::complete::{self, multispace1},
     multi::separated_list1,
-    sequence::{delimited, preceded, separated_pair, tuple},
+    sequence::{delimited, preceded},
     *,
 };
+use std::collections::VecDeque;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Value {
     Old,
     Num(u8),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Operation {
     Mult((Value, Value)),
     Add((Value, Value)),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Test {
     divisible: u8,
     if_true: u8,
     if_false: u8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Monkey {
-    items: Vec<u128>,
+    items: VecDeque<u128>,
     operation: Operation,
     test: Test,
+    touch_count: u32,
 }
 
-fn items(input: &str) -> IResult<&str, Vec<u128>> {
+impl Monkey {
+    fn inspect(&mut self) -> u128 {
+        self.touch_count += 1;
+        let item = self.items.pop_front().unwrap();
+        match &self.operation {
+            Operation::Mult((a, b)) => {
+                let num_a = match a {
+                    Value::Old => item,
+                    Value::Num(num) => *num as u128,
+                };
+                let num_b = match b {
+                    Value::Old => item,
+                    Value::Num(num) => *num as u128,
+                };
+                num_a * num_b
+            }
+            Operation::Add((a, b)) => {
+                let num_a = match a {
+                    Value::Old => item,
+                    Value::Num(num) => *num as u128,
+                };
+                let num_b = match b {
+                    Value::Old => item,
+                    Value::Num(num) => *num as u128,
+                };
+                num_a + num_b
+            }
+        }
+    }
+
+    fn test(&self, item: u128) -> usize {
+        if item % (self.test.divisible as u128) == 0 {
+            self.test.if_true as usize
+        } else {
+            self.test.if_false as usize
+        }
+    }
+}
+
+fn items(input: &str) -> IResult<&str, VecDeque<u128>> {
     let (input, items) = preceded(
         tag("Starting items: "),
         separated_list1(tag(", "), complete::u128),
     )(input)?;
 
-    Ok((input, items))
+    Ok((input, VecDeque::from(items)))
 }
 
 fn value(input: &str) -> IResult<&str, Value> {
-    alt((
-        tag("old").map(|_| Value::Old),
-        complete::u8.map(|num| Value::Num(num)),
-    ))(input)
+    alt((tag("old").map(|_| Value::Old), complete::u8.map(Value::Num)))(input)
 }
 
 fn operation(input: &str) -> IResult<&str, Operation> {
@@ -94,18 +132,44 @@ fn monkey(input: &str) -> IResult<&str, Monkey> {
             items,
             operation: op,
             test,
+            touch_count: 0,
         },
     ))
 }
 
 pub fn process_part1(input: &str) -> String {
-    let (input, monkeys) = separated_list1(tag("\n\n"), monkey)(input).unwrap();
-    dbg!(monkeys);
+    let (_input, mut monkeys) = separated_list1(tag("\n\n"), monkey)(input).unwrap();
+    let num_monkeys = monkeys.len();
 
-    todo!()
+    for _round in 0..20 {
+        // 20 rounds
+        for monkey_index in 0..num_monkeys {
+            for _ in 0..monkeys[monkey_index].items.len() {
+                let monkey = monkeys.get_mut(monkey_index).unwrap();
+                let mut item = monkey.inspect();
+                item /= 3;
+                let destination_monkey = monkey.test(item);
+                monkeys
+                    .get_mut(destination_monkey)
+                    .unwrap()
+                    .items
+                    .push_back(item);
+            }
+        }
+    }
+
+    monkeys.sort_by_key(|monkey| monkey.touch_count);
+    let monkey_business: u32 = monkeys
+        .iter()
+        .map(|monkey| dbg!(monkey.touch_count))
+        .rev()
+        .take(2)
+        .product();
+
+    monkey_business.to_string()
 }
 
-pub fn process_part2(input: &str) -> String {
+pub fn process_part2(_input: &str) -> String {
     "two".to_string()
 }
 
