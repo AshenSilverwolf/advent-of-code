@@ -130,6 +130,11 @@ pub fn process_part2(input: &str) -> String {
         .min()
         .unwrap()
         .to_string()
+
+    // possible optimizations
+    // - work backwards from the end to the nearest 'a'
+    // 		- modify heuristic to calculate distance to nearest 'a' instead of single point
+    // 		- modify success condition to match on any 'a'
 }
 
 #[cfg(test)]
