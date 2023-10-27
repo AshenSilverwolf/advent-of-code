@@ -1,16 +1,45 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    IResult, Parser,
     character::complete::{self, newline},
     multi::{separated_list0, separated_list1},
     sequence::{delimited, separated_pair},
+    IResult, Parser,
 };
+use std::cmp::Ordering;
 
-#[derive(Debug)]
+#[derive(Debug, Eq)]
 enum Packet {
     List(Vec<Packet>),
     Number(u32),
+}
+
+impl PartialOrd for Packet {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Packet {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Self::List(a), Self::List(b)) => a.cmp(b),
+            (Self::List(a), Self::Number(b)) => a.cmp(&vec![Self::Number(*b)]),
+            (Self::Number(a), Self::List(b)) => vec![Self::Number(*a)].cmp(b),
+            (Self::Number(a), Self::Number(b)) => a.cmp(b),
+        }
+    }
+}
+
+impl PartialEq for Packet {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::List(a), Self::List(b)) => a == b,
+            (Self::Number(a), Self::Number(b)) => a == b,
+            (Self::List(a), Self::Number(b)) => a == &vec![Self::Number(*b)],
+            (Self::Number(a), Self::List(b)) => &vec![Self::Number(*a)] == b,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -21,36 +50,33 @@ struct Pair {
 
 fn packet(input: &str) -> IResult<&str, Packet> {
     alt((
-        delimited(
-            tag("["),
-            separated_list0(
-                tag(","),
-                packet,
-            ),
-            tag("]"),
-        ).map(|vec| Packet::List(vec)),
-        complete::u32.map(|num| Packet::Number(num)),
+        delimited(tag("["), separated_list0(tag(","), packet), tag("]")).map(Packet::List),
+        complete::u32.map(Packet::Number),
     ))(input)
 }
 
 fn pairs(input: &str) -> IResult<&str, Vec<Pair>> {
     separated_list1(
         tag("\n\n"),
-        separated_pair(packet, newline, packet).map(
-            |(p1, p2)| Pair { left: p1, right: p2 }
-        )
+        separated_pair(packet, newline, packet).map(|(p1, p2)| Pair {
+            left: p1,
+            right: p2,
+        }),
     )(input)
 }
 
 pub fn process_part1(input: &str) -> String {
-    let(_, pair_list) = pairs(input).unwrap();
-    // dbg!(pair_list);
+    let (_, pair_list) = pairs(input).unwrap();
     pair_list
         .iter()
         .enumerate()
-        .map(|(index, Pair { left, right })| (index+1, left.cmp(right)))
-        .filter(|(_, less_than)| less_than)
-        .sum::<u32>()
+        .filter_map(|(index, Pair { left, right })| match left.cmp(right) {
+            Ordering::Less => Some(index),
+            Ordering::Equal => panic!("equal???"),
+            Ordering::Greater => None,
+        })
+        .map(|i| i + 1)
+        .sum::<usize>()
         .to_string()
 }
 
