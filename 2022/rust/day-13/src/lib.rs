@@ -81,7 +81,30 @@ pub fn process_part1(input: &str) -> String {
 }
 
 pub fn process_part2(input: &str) -> String {
-    "two".to_string()
+    let (_, pair_list) = pairs(input).unwrap();
+    let packet_2 = Packet::List(vec![Packet::List(vec![Packet::Number(2)])]);
+    let packet_6 = Packet::List(vec![Packet::List(vec![Packet::Number(6)])]);
+    let mut packets: Vec<&Packet> = pair_list
+        .iter()
+        .flat_map(|Pair { left, right }| [left, right])
+        .chain([&packet_2, &packet_6])
+        .collect();
+
+    packets.sort();
+    let index_2 = packets
+        .iter()
+        .enumerate()
+        .find(|(_index, packet)| ***packet == packet_2)
+        .map(|(index, _)| index + 1)
+        .unwrap();
+    let index_6 = packets
+        .iter()
+        .enumerate()
+        .find(|(_index, packet)| ***packet == packet_6)
+        .map(|(index, _)| index + 1)
+        .unwrap();
+
+    (index_2 * index_6).to_string()
 }
 
 #[cfg(test)]
@@ -118,7 +141,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn part2_works() {
         assert_eq!(process_part2(INPUT), "140");
     }
