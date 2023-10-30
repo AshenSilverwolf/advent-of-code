@@ -1,3 +1,5 @@
+use geo::{Coord, Line};
+use intersect2d::{intersect, Intersection};
 use nom::{
     bytes::complete::tag,
     character::complete::{self, line_ending},
@@ -14,6 +16,10 @@ struct Pos {
 }
 
 impl Pos {
+    fn zero() -> Self {
+        Self { x: 0, y: 0 }
+    }
+
     fn distance(&self, other: &Self) -> i32 {
         (self.x - other.x).abs() + (self.y - other.y).abs()
     }
@@ -98,8 +104,94 @@ pub fn process_part1(input: &str, target_row: i32) -> String {
     covered.to_string()
 }
 
-pub fn process_part2(_input: &str) -> String {
-    todo!("two")
+fn generate_border_lines(sensor: &Sensor, range: i32) -> BTreeSet<(Pos, Pos)> {
+    let east = Pos {
+        x: sensor.x + range + 1,
+        y: sensor.y,
+    };
+    let south = Pos {
+        x: sensor.x,
+        y: sensor.y - range - 1,
+    };
+    let west = Pos {
+        x: sensor.x - range - 1,
+        y: sensor.y,
+    };
+    let north = Pos {
+        x: sensor.x,
+        y: sensor.y + range + 1,
+    };
+
+    BTreeSet::from([
+        (east.clone(), south.clone()),
+        (south.clone(), west.clone()),
+        (west.clone(), north.clone()),
+        (north.clone(), east.clone()),
+    ])
+}
+
+pub fn process_part2(input: &str, search_space: f64) -> String {
+    let (_, sensor_beacon_map) = sensor_beacon_map(input).unwrap();
+    let mut output: Pos = Pos::zero();
+    let mut lines: BTreeSet<(Pos, Pos)> = BTreeSet::new();
+    let mut intersections: BTreeSet<Pos> = BTreeSet::new();
+    for (sensor, beacon) in &sensor_beacon_map {
+        let border_lines = generate_border_lines(sensor, sensor.distance(beacon));
+        lines = lines.union(&border_lines).map(|ls| ls.to_owned()).collect();
+    }
+
+    let lines_vec1 = lines
+        .iter()
+        .map(|(first, second)| {
+            let mut coord1 = Coord::zero();
+            let mut coord2 = Coord::zero();
+            coord1.x = first.x as f64;
+            coord1.y = first.y as f64;
+            coord2.x = second.x as f64;
+            coord2.y = second.y as f64;
+            Line::new(coord1, coord2)
+        })
+        .collect::<Vec<Line>>();
+    let lines_vec2 = lines_vec1.clone();
+
+    for line1 in &lines_vec1 {
+        for line2 in &lines_vec2 {
+            if line1 == line2 {
+                continue;
+            }
+            let intersection_point = intersect(line1, line2);
+            if let Some(Intersection::Intersection(c)) = intersection_point {
+                let within_bounds: bool =
+                    0. <= c.x && c.x <= search_space && 0. <= c.y && c.y <= search_space;
+                if within_bounds {
+                    intersections.insert(Pos {
+                        x: c.x as i32,
+                        y: c.y as i32,
+                    });
+                }
+            } else {
+                continue;
+            }
+
+            for point in &intersections {
+                let mut covered = false;
+                for (sensor, beacon) in &sensor_beacon_map {
+                    if point.distance(sensor) <= sensor.distance(beacon) {
+                        covered = true;
+                        break;
+                    }
+                }
+                if !covered {
+                    output = point.clone();
+                    break;
+                }
+            }
+        }
+    }
+
+    dbg!(&output);
+
+    (output.x as i64 * 4_000_000 + output.y as i64).to_string()
 }
 
 #[cfg(test)]
@@ -127,8 +219,7 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3";
     }
 
     #[test]
-    #[ignore]
     fn part2_works() {
-        assert_eq!(process_part2(INPUT), "56000011");
+        assert_eq!(process_part2(INPUT, 20.), "56000011");
     }
 }
