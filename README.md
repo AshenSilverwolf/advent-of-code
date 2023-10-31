@@ -1,2 +1,2 @@
-# AdventOfCode_2022_Rust
+# advent-of-code
 https://adventofcode.com/2022/
