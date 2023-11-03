@@ -1,12 +1,12 @@
-use std::collections::BTreeMap;
 use nom::{
-    character::complete::{self, line_ending},
-    sequence::preceded,
-    bytes::complete::{tag, take},
-    multi::separated_list1,
     branch::alt,
+    bytes::complete::{tag, take},
+    character::complete::{self, line_ending},
+    multi::separated_list1,
+    sequence::preceded,
     IResult,
 };
+use std::collections::BTreeMap;
 
 fn valve_name(input: &str) -> IResult<&str, &str> {
     preceded(tag("Valve "), take(2_usize))(input)
@@ -19,13 +19,10 @@ fn flow_rate(input: &str) -> IResult<&str, u32> {
 fn tunnels(input: &str) -> IResult<&str, Vec<&str>> {
     preceded(
         alt((
-            tag("; tunnels lead to valves "), 
+            tag("; tunnels lead to valves "),
             tag("; tunnel leads to valve "),
         )),
-        separated_list1(
-            tag(", "),
-            take(2_usize)
-        )
+        separated_list1(tag(", "), take(2_usize)),
     )(input)
 }
 
@@ -75,18 +72,15 @@ Valve II has flow rate=0; tunnels lead to valves AA, JJ
 Valve JJ has flow rate=21; tunnel leads to valve II";
 
     #[test]
-    fn parser_works() {        
+    fn parser_works() {
         let (input, name) = valve_name(INPUT).unwrap();
         assert_eq!(name, "AA");
         let (input, flow) = dbg!(flow_rate(input)).unwrap();
         assert_eq!(flow, 0_u32);
         let (input, tunnels) = tunnels(input).unwrap();
         assert_eq!(tunnels, vec!["DD", "II", "BB"]);
-        let (input, (name, flow, tunnels)) = preceded(line_ending, line)(input).unwrap();
-        assert_eq!(
-            (name, flow, tunnels),
-            ("BB", 13_u32, vec!["CC", "AA"]),
-        );
+        let (_input, (name, flow, tunnels)) = preceded(line_ending, line)(input).unwrap();
+        assert_eq!((name, flow, tunnels), ("BB", 13_u32, vec!["CC", "AA"]),);
     }
 
     #[test]
