@@ -1,23 +1,22 @@
-use std::collections::BTreeMap;
-
 use nom::{
     branch::alt,
     bytes::complete::{tag, take},
     character::complete::{self, line_ending},
     multi::separated_list1,
-    sequence::{preceded, tuple},
+    sequence::preceded,
     IResult,
 };
+use std::collections::BTreeMap;
 
-fn parse_valve(input: &str) -> IResult<&str, &str> {
+fn valve_name(input: &str) -> IResult<&str, &str> {
     preceded(tag("Valve "), take(2_usize))(input)
 }
 
-fn parse_flow_rate(input: &str) -> IResult<&str, u32> {
+fn flow_rate(input: &str) -> IResult<&str, u32> {
     preceded(tag(" has flow rate="), complete::u32)(input)
 }
 
-fn parse_tunnels(input: &str) -> IResult<&str, Vec<&str>> {
+fn tunnels(input: &str) -> IResult<&str, Vec<&str>> {
     preceded(
         alt((
             tag("; tunnels lead to valves "),
@@ -27,20 +26,20 @@ fn parse_tunnels(input: &str) -> IResult<&str, Vec<&str>> {
     )(input)
 }
 
-fn parse_line(input: &str) -> IResult<&str, (&str, u32, Vec<&str>)> {
-    let (input, (name, flow_rate, tunnels)) =
-        tuple((parse_valve, parse_flow_rate, parse_tunnels))(input)?;
-
-    Ok((input, (name, flow_rate, tunnels)))
+fn line(input: &str) -> IResult<&str, (&str, u32, Vec<&str>)> {
+    let (input, name) = valve_name(input)?;
+    let (input, flow) = flow_rate(input)?;
+    let (input, tunnels) = tunnels(input)?;
+    Ok((input, (name, flow, tunnels)))
 }
 
 fn parse_valves(input: &str) -> IResult<&str, (BTreeMap<&str, u32>, BTreeMap<&str, Vec<&str>>)> {
-    let (input, lines) = separated_list1(line_ending, parse_line)(input)?;
+    let (input, result) = separated_list1(line_ending, line)(input)?;
     let mut valves: BTreeMap<&str, u32> = BTreeMap::new();
     let mut tunnels: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for (name, flow, tunnels_list) in lines {
+    for (name, flow, exit_tunnels) in result {
         valves.insert(name, flow);
-        tunnels.insert(name, tunnels_list);
+        tunnels.insert(name, exit_tunnels);
     }
 
     Ok((input, (valves, tunnels)))
@@ -50,10 +49,10 @@ pub fn process_part1(input: &str) -> String {
     let (_input, (valves, tunnels)) = parse_valves(input).unwrap();
     dbg!(valves, tunnels);
 
-    todo!("process_part1")
+    todo!("one")
 }
 
-pub fn process_part2(input: &str) -> String {
+pub fn process_part2(_input: &str) -> String {
     todo!("two")
 }
 
@@ -73,6 +72,19 @@ Valve II has flow rate=0; tunnels lead to valves AA, JJ
 Valve JJ has flow rate=21; tunnel leads to valve II";
 
     #[test]
+    fn parser_works() {
+        let (input, name) = valve_name(INPUT).unwrap();
+        assert_eq!(name, "AA");
+        let (input, flow) = dbg!(flow_rate(input)).unwrap();
+        assert_eq!(flow, 0_u32);
+        let (input, tunnels) = tunnels(input).unwrap();
+        assert_eq!(tunnels, vec!["DD", "II", "BB"]);
+        let (_input, (name, flow, tunnels)) = preceded(line_ending, line)(input).unwrap();
+        assert_eq!((name, flow, tunnels), ("BB", 13_u32, vec!["CC", "AA"]),);
+    }
+
+    #[test]
+    #[ignore]
     fn part1_works() {
         assert_eq!(process_part1(INPUT), "1651");
     }
