@@ -1,18 +1,13 @@
+use std::collections::BTreeMap;
+
 use nom::{
     branch::alt,
     bytes::complete::{tag, take},
-    character::complete::{self, line_ending, newline},
+    character::complete::{self, line_ending},
     multi::separated_list1,
-    sequence::{delimited, preceded, tuple},
+    sequence::{preceded, tuple},
     IResult,
 };
-
-#[derive(Debug)]
-struct Valve<'a> {
-    name: &'a str,
-    flow_rate: u32,
-    tunnels: Vec<&'a str>,
-}
 
 fn parse_valve(input: &str) -> IResult<&str, &str> {
     preceded(tag("Valve "), take(2_usize))(input)
@@ -32,27 +27,28 @@ fn parse_tunnels(input: &str) -> IResult<&str, Vec<&str>> {
     )(input)
 }
 
-fn parse_line(input: &str) -> IResult<&str, Valve> {
+fn parse_line(input: &str) -> IResult<&str, (&str, u32, Vec<&str>)> {
     let (input, (name, flow_rate, tunnels)) =
         tuple((parse_valve, parse_flow_rate, parse_tunnels))(input)?;
 
-    Ok((
-        input,
-        Valve {
-            name,
-            flow_rate,
-            tunnels,
-        },
-    ))
+    Ok((input, (name, flow_rate, tunnels)))
 }
 
-fn parse_valves(input: &str) -> IResult<&str, Vec<Valve>> {
-    separated_list1(line_ending, parse_line)(input)
+fn parse_valves(input: &str) -> IResult<&str, (BTreeMap<&str, u32>, BTreeMap<&str, Vec<&str>>)> {
+    let (input, lines) = separated_list1(line_ending, parse_line)(input)?;
+    let mut valves: BTreeMap<&str, u32> = BTreeMap::new();
+    let mut tunnels: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for (name, flow, tunnels_list) in lines {
+        valves.insert(name, flow);
+        tunnels.insert(name, tunnels_list);
+    }
+
+    Ok((input, (valves, tunnels)))
 }
 
 pub fn process_part1(input: &str) -> String {
-    let (_input, valves) = parse_valves(input).unwrap();
-    dbg!(valves);
+    let (_input, (valves, tunnels)) = parse_valves(input).unwrap();
+    dbg!(valves, tunnels);
 
     todo!("process_part1")
 }
