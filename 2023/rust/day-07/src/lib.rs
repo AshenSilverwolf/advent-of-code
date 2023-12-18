@@ -12,7 +12,7 @@ use std::{cmp::Ordering, collections::BTreeMap};
 
 // do not change
 mod p1_types {
-    use std::{cmp::Ordering, collections::BTreeMap};
+    use super::*;
 
     #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
     pub enum Card {
@@ -83,9 +83,7 @@ mod p1_types {
             card_counts.sort();
             let mut card_counts_hi_to_lo = card_counts.into_iter().rev();
 
-            let Some(high) = card_counts_hi_to_lo.next() else {
-                unreachable!()
-            };
+            let high = card_counts_hi_to_lo.next().expect("highest card");
             match high {
                 5 => HandRank::Quints,
                 4 => HandRank::Quads,
@@ -123,15 +121,40 @@ mod p1_types {
                 _ => cmp_result,
             }
         }
+    }
+
+    fn card(input: &str) -> IResult<&str, Card> {
+        map(one_of("23456789TJQKA"), |c: char| {
+            Card::try_from(c).expect("valid char")
+        })(input)
+    }
+
+    fn hand(input: &str) -> IResult<&str, Hand> {
+        map(many1(card), |cards: Vec<Card>| {
+            Hand(cards)
+        })(input)
+    }
+
+    fn bid(input: &str) -> IResult<&str, u32> {
+        complete::u32(input)
+    }
+
+    fn line(input: &str) -> IResult<&str, (Hand, u32)> {
+        separated_pair(hand, tag(" "), bid)(input)
+    }
+
+    pub fn parse_input(input: &str) -> IResult<&str, Vec<(Hand, u32)>> {
+        separated_list1(newline, line)(input)
     }
 }
 
 // TODO?: modify to account for Jokers in part 2
 mod p2_types {
-    use std::{cmp::Ordering, collections::BTreeMap};
+    use super::*;
 
     #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
     pub enum Card {
+        Joker,
         Deuce,
         Three,
         Four,
@@ -141,7 +164,6 @@ mod p2_types {
         Eight,
         Nine,
         Ten,
-        Jack,
         Queen,
         King,
         Ace,
@@ -152,6 +174,7 @@ mod p2_types {
 
         fn try_from(value: char) -> Result<Self, Self::Error> {
             match value {
+                'J' => Ok(Card::Joker),
                 '2' => Ok(Card::Deuce),
                 '3' => Ok(Card::Three),
                 '4' => Ok(Card::Four),
@@ -161,12 +184,32 @@ mod p2_types {
                 '8' => Ok(Card::Eight),
                 '9' => Ok(Card::Nine),
                 'T' => Ok(Card::Ten),
-                'J' => Ok(Card::Jack),
                 'Q' => Ok(Card::Queen),
                 'K' => Ok(Card::King),
                 'A' => Ok(Card::Ace),
                 _ => Err("Invalid card value"),
             }
+        }
+    }
+
+    impl Card {
+        pub fn iterator() -> impl Iterator<Item = Card> {
+            [
+                Self::Joker,
+                Self::Deuce,
+                Self::Three,
+                Self::Four,
+                Self::Five,
+                Self::Six,
+                Self::Seven,
+                Self::Eight,
+                Self::Nine,
+                Self::Ten,
+                Self::Queen,
+                Self::King,
+                Self::Ace,
+            ]
+            .into_iter()
         }
     }
 
@@ -195,13 +238,12 @@ mod p2_types {
                 }
             }
 
-            let mut card_counts = card_quantities.values().cloned().collect::<Vec<u8>>();
+            let mut card_counts: Vec<u8> =
+                card_quantities.values().cloned().collect();
             card_counts.sort();
             let mut card_counts_hi_to_lo = card_counts.into_iter().rev();
 
-            let Some(high) = card_counts_hi_to_lo.next() else {
-                unreachable!()
-            };
+            let high = card_counts_hi_to_lo.next().expect("high card");
             match high {
                 5 => HandRank::Quints,
                 4 => HandRank::Quads,
@@ -240,34 +282,34 @@ mod p2_types {
             }
         }
     }
-}
 
-fn card(input: &str) -> IResult<&str, p1_types::Card> {
-    map(one_of("23456789TJQKA"), |c: char| {
-        p1_types::Card::try_from(c).expect("valid char")
-    })(input)
-}
+    fn card(input: &str) -> IResult<&str, Card> {
+        map(one_of("23456789TJQKA"), |c: char| {
+            Card::try_from(c).expect("valid char")
+        })(input)
+    }
 
-fn hand(input: &str) -> IResult<&str, p1_types::Hand> {
-    map(many1(card), |cards: Vec<p1_types::Card>| {
-        p1_types::Hand(cards)
-    })(input)
-}
+    fn hand(input: &str) -> IResult<&str, Hand> {
+        map(many1(card), |cards: Vec<Card>| {
+            Hand(cards)
+        })(input)
+    }
 
-fn bid(input: &str) -> IResult<&str, u32> {
-    complete::u32(input)
-}
+    fn bid(input: &str) -> IResult<&str, u32> {
+        complete::u32(input)
+    }
 
-fn line(input: &str) -> IResult<&str, (p1_types::Hand, u32)> {
-    separated_pair(hand, tag(" "), bid)(input)
-}
+    fn line(input: &str) -> IResult<&str, (Hand, u32)> {
+        separated_pair(hand, tag(" "), bid)(input)
+    }
 
-fn parse_input(input: &str) -> IResult<&str, Vec<(p1_types::Hand, u32)>> {
-    separated_list1(newline, line)(input)
+    pub fn parse_input(input: &str) -> IResult<&str, Vec<(Hand, u32)>> {
+        separated_list1(newline, line)(input)
+    }
 }
 
 pub fn process_part1(input: &str) -> String {
-    let (_, mut hands_bids) = parse_input(input).expect("valid input");
+    let (_, mut hands_bids) = p1_types::parse_input(input).expect("valid input");
     hands_bids.sort_by_key(|(hand, _)| hand.clone());
     hands_bids
         .iter()
@@ -278,6 +320,8 @@ pub fn process_part1(input: &str) -> String {
 }
 
 pub fn process_part2(input: &str) -> String {
+    let (_, mut hands_bids) = p2_types::parse_input(input).expect("valid input");
+    dbg!(hands_bids);
     todo!()
 }
 
@@ -311,5 +355,26 @@ QQQJA 483";
         assert!(p1_types::Card::Deuce < p1_types::Card::Three);
         assert!(p1_types::Card::Ace > p1_types::Card::Jack);
         assert!(p1_types::Card::Ten == p1_types::Card::Ten);
+    }
+
+    #[test]
+    fn card_iter() {
+        let expected: Vec<p2_types::Card> = vec![
+            p2_types::Card::Joker,
+            p2_types::Card::Deuce,
+            p2_types::Card::Three,
+            p2_types::Card::Four,
+            p2_types::Card::Five,
+            p2_types::Card::Six,
+            p2_types::Card::Seven,
+            p2_types::Card::Eight,
+            p2_types::Card::Nine,
+            p2_types::Card::Ten,
+            p2_types::Card::Queen,
+            p2_types::Card::King,
+            p2_types::Card::Ace,
+        ];
+        let result: Vec<p2_types::Card> = p2_types::Card::iterator().collect();
+        assert_eq!(expected, result);
     }
 }
