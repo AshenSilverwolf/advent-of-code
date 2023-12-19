@@ -9,7 +9,7 @@ use nom::{
     sequence::{delimited, separated_pair, tuple},
     IResult,
 };
-use primes::factors;
+use num::integer::Integer;
 use std::collections::BTreeMap;
 
 type NodeLRMap<'a> = BTreeMap<&'a str, (&'a str, &'a str)>;
@@ -83,13 +83,12 @@ pub fn process_part2(input: &str) -> String {
         .cloned()
         .filter(|s| s.ends_with('A'))
         .collect();
-    dbg!(&current_nodes);
 
     current_nodes
         .iter()
         .map(|node| {
             let mut turns = turns_iter.clone();
-            let mut steps = 0;
+            let mut steps: u64 = 0;
             let mut curr_node = *node;
             while !curr_node.ends_with('Z') {
                 let turn = turns.next().expect("next turn");
@@ -102,9 +101,7 @@ pub fn process_part2(input: &str) -> String {
             }
             steps
         })
-        .flat_map(factors)
-        .map(|n| n as u128)
-        .product::<u128>()
+        .fold(1, |acc, x| acc.lcm(&x))
         .to_string()
 }
 
@@ -141,10 +138,5 @@ XXX = (XXX, XXX)";
         let expected = String::from("6");
         let result = process_part2(INPUT_2);
         assert_eq!(expected, result);
-    }
-
-    #[test]
-    fn prime_factorizations() {
-        assert_eq!(vec![2, 3, 17], factors(102));
     }
 }
