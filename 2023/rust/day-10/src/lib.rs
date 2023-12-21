@@ -5,13 +5,21 @@ use nom::{
     IResult,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Pos {
     x: usize,
     y: usize,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+impl PartialEq for Pos {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
+
+impl Eq for Pos {}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum Direction {
     Up,
     Down,
@@ -19,7 +27,18 @@ enum Direction {
     Right,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+impl Direction {
+    fn flip(&self) -> Self {
+        match self {
+            Direction::Up => Direction::Down,
+            Direction::Down => Direction::Up,
+            Direction::Left => Direction::Right,
+            Direction::Right => Direction::Left,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Pipe {
     Vert,
     Horiz,
@@ -42,15 +61,16 @@ impl Pipe {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Tile {
     Ground,
     Pipe(Pipe),
     Start,
+    NonExistent,
 }
 
 impl Tile {
-    fn imply_pipe(&self, (east, south, west, north): (Tile, Tile, Tile, Tile)) -> Pipe {
+    fn imply_pipe((east, south, west, north): (Tile, Tile, Tile, Tile)) -> Pipe {
         let con_e = matches!(
             east,
             Tile::Pipe(Pipe::NW) | Tile::Pipe(Pipe::SW) | Tile::Pipe(Pipe::Horiz)
@@ -98,8 +118,6 @@ fn parse_input(input: &str) -> IResult<&str, Vec<Vec<Tile>>> {
     separated_list1(newline, row)(input)
 }
 
-// you don't have to scan every tile to find the main loop
-// just pick a direction from the start and stop when you return to the start
 pub fn process_part1(input: &str) -> String {
     let (_, tile_grid) = parse_input(input).expect("valid input");
     let mut start_pos = Pos { x: 0, y: 0 };
@@ -112,14 +130,64 @@ pub fn process_part1(input: &str) -> String {
         }
     }
 
-    // found starting pos
-    // establish main circuit
-    // - pick a direction
-    // - keep going that direction
-    // - stop when you find the start again
-    // answer is length of path / 2
+    let mut num_moves = 0;
+    let mut curr_pos = start_pos.clone();
+    let east = if start_pos.x < tile_grid[0].len() {
+        tile_grid[start_pos.y][start_pos.x + 1].clone()
+    } else {
+        Tile::NonExistent
+    };
+    let south = if start_pos.y < tile_grid.len() {
+        tile_grid[start_pos.y][start_pos.x + 1].clone()
+    } else {
+        Tile::NonExistent
+    };
+    let west = if start_pos.x > 0 {
+        tile_grid[start_pos.y][start_pos.x + 1].clone()
+    } else {
+        Tile::NonExistent
+    };
+    let north = if start_pos.y > 0 {
+        tile_grid[start_pos.y][start_pos.x + 1].clone()
+    } else {
+        Tile::NonExistent
+    };
+    let start_neighbors = (east, south, west, north);
 
-    todo!()
+    let binding = Tile::imply_pipe(start_neighbors).connections();
+    let mut next_move = binding
+        .iter()
+        .min()
+        .expect("random direction of flow");
+
+    match next_move {
+        Direction::Up => curr_pos.y -= 1,
+        Direction::Down => curr_pos.y += 1,
+        Direction::Right => curr_pos.x += 1,
+        Direction::Left => curr_pos.x -= 1,
+    };
+    let mut prev_move = next_move.clone();
+    num_moves += 1;
+    
+    while curr_pos != start_pos {
+        let p =  if let Tile::Pipe(p) = tile_grid[curr_pos.y][curr_pos.x].clone() { p } else { panic!("uhoh") };
+        let binding = p.connections();
+        next_move = binding
+            .iter()
+            .filter(|d| **d != prev_move.flip())
+            .next()
+            .expect("forward move");
+        prev_move = next_move.clone();
+        match next_move {
+            Direction::Up => curr_pos.y -= 1,
+            Direction::Down => curr_pos.y += 1,
+            Direction::Right => curr_pos.x += 1,
+            Direction::Left => curr_pos.x -= 1,
+        };
+        num_moves += 1;
+    }
+    
+    (num_moves / 2).to_string()
 }
 
 pub fn process_part2(input: &str) -> String {
