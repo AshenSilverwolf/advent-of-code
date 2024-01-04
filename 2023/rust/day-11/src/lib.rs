@@ -4,18 +4,40 @@ use nom::{
     multi::{many1, separated_list1},
     IResult,
 };
+use itertools::{Itertools, iproduct};
 use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 // Note: HashSet requires that if k1 == k2, then hash(k1) == hash(k2).
 // this could be difficult to implement with our GalacticPair equality logic
+// Another Note: BTreeSet requires Ord be implemented for its elements
+// this is also very difficult to implement with GalacticPair
+// consider just using a Vec? we just need to ensure all pairs are unique
 
 #[derive(Debug, Clone)]
 struct GalacticPair(Pos, Pos);
+
+impl From<(Pos, Pos)> for GalacticPair {
+    fn from(pair: (Pos, Pos)) -> Self {
+        Self(pair.0, pair.1)
+    }
+}
+
+// TODO: implement Hash for GalacticPair
+// hash each member, then combine using ^
+// https://nnethercote.github.io/2021/12/08/a-brutally-effective-hash-function-in-rust.html
+impl Hash for GalacticPair {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state) ^ self.1.hash(state)
+    }
+}
 
 impl PartialEq for GalacticPair {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1 || self.0 == other.1 && self.1 == other.0
     }
 }
+
+impl Eq for GalacticPair {}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Tile {
@@ -29,6 +51,16 @@ struct Pos {
     y: usize,
 }
 
+impl Pos {
+    fn new(x: usize, y: usize) -> Self {
+        Self { x, y }
+    }
+
+    fn distance(&self, other: &Self) -> usize {
+        self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
+    }
+}
+
 fn parse_input(input: &str) -> IResult<&str, Vec<Vec<Tile>>> {
     separated_list1(
         newline,
@@ -40,7 +72,7 @@ fn parse_input(input: &str) -> IResult<&str, Vec<Vec<Tile>>> {
     )(input)
 }
 
-fn isolate_column(galactic_map: &Vec<Vec<Tile>>, col_index: usize) -> impl Iterator<Item = Tile> {
+fn isolate_column_as_iter(galactic_map: &Vec<Vec<Tile>>, col_index: usize) -> impl Iterator<Item = Tile> {
     if col_index >= galactic_map.len() {
         panic!("col_index exceeds max size of map: {col_index}");
     }
@@ -69,8 +101,16 @@ pub fn process_part1(input: &str) -> String {
                 .collect::<Vec<Pos>>()
         })
         .collect();
-    dbg!(&galaxies);
-    let galaxy_pairs: HashSet<GalacticPair>;
+    let mut galaxy_pairs: Vec<GalacticPair> = vec![];
+    let galx_1 = galaxies.clone();
+    let galx_2 = galaxies.clone();
+    let galaxy_pairs: Vec<GalacticPair> = iproduct!(galx_1.iter(), galx_2.iter())
+        .map(|(g1, g2)| GalacticPair(g1.clone(), g2.clone()))
+        // .map(GalacticPair::from) // map to GalacticPair type
+        .filter(|GalacticPair(f, s)| f != s) // remove pairs where both are the same
+        .unique() // remove references to the same pair, regardless of order
+        .collect::<Vec<GalacticPair>>(); // collect into Vec
+    dbg!(&galaxy_pairs);
     // find distance between all pairs
     // depending on distance
 
@@ -119,7 +159,7 @@ mod tests {
             vec![Tile::Galaxy, Tile::Galaxy, Tile::Space],
         ];
         let expected = vec![Tile::Space, Tile::Galaxy, Tile::Galaxy];
-        let result: Vec<Tile> = isolate_column(&input, 0_usize).collect();
+        let result: Vec<Tile> = isolate_column_as_iter(&input, 0_usize).collect();
         assert_eq!(expected, result);
     }
 
@@ -132,5 +172,27 @@ mod tests {
         assert_eq!(this, that);
         assert_eq!(this, other);
         assert_ne!(this, bad);
+    }
+
+    #[test]
+    fn pair_generation_works() {
+        let expected: Vec<GalacticPair> = vec![
+            GalacticPair(Pos::new(1, 2), Pos::new(3, 6)),
+            GalacticPair(Pos::new(1, 2), Pos::new(4, 8)),
+            GalacticPair(Pos::new(3, 6), Pos::new(4, 8)),
+        ];
+        let galaxies: Vec<Pos> = vec![
+            Pos::new(1, 2),
+            Pos::new(3, 6),
+            Pos::new(4, 8),
+        ];
+        let g1 = galaxies.clone();
+        let g2 = galaxies.clone();
+        let galaxy_pairs: Vec<GalacticPair> = iproduct!(g1.iter(), g2.iter())
+            .map(|(g1, g2)| GalacticPair(g1.clone(), g2.clone()))
+            .filter(|GalacticPair(f, s)| f != s)
+            .unique()
+            .collect::<Vec<GalacticPair>>();
+        assert_eq!(expected, galaxy_pairs);
     }
 }
