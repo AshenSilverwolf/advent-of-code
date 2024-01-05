@@ -7,11 +7,6 @@ use nom::{
 use itertools::{Itertools, iproduct};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
-// Note: HashSet requires that if k1 == k2, then hash(k1) == hash(k2).
-// this could be difficult to implement with our GalacticPair equality logic
-// Another Note: BTreeSet requires Ord be implemented for its elements
-// this is also very difficult to implement with GalacticPair
-// consider just using a Vec? we just need to ensure all pairs are unique
 
 #[derive(Debug, Clone)]
 struct GalacticPair(Pos, Pos);
@@ -22,12 +17,9 @@ impl From<(Pos, Pos)> for GalacticPair {
     }
 }
 
-// TODO: implement Hash for GalacticPair
-// hash each member, then combine using ^
-// https://nnethercote.github.io/2021/12/08/a-brutally-effective-hash-function-in-rust.html
 impl Hash for GalacticPair {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state) ^ self.1.hash(state)
+        (self.0.id() ^ self.1.id()).hash(state);
     }
 }
 
@@ -59,7 +51,20 @@ impl Pos {
     fn distance(&self, other: &Self) -> usize {
         self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
     }
+
+    fn id(&self) -> usize {
+        (self.x * 0x1f1f1f1f) ^ self.y
+    }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Alignment {
+    Vert,
+    Horiz,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EmptySpace(Alignment, usize);
 
 fn parse_input(input: &str) -> IResult<&str, Vec<Vec<Tile>>> {
     separated_list1(
@@ -73,7 +78,7 @@ fn parse_input(input: &str) -> IResult<&str, Vec<Vec<Tile>>> {
 }
 
 fn isolate_column_as_iter(galactic_map: &Vec<Vec<Tile>>, col_index: usize) -> impl Iterator<Item = Tile> {
-    if col_index >= galactic_map.len() {
+    if col_index >= galactic_map[0].len() {
         panic!("col_index exceeds max size of map: {col_index}");
     }
     let col: Vec<Tile> = galactic_map
@@ -83,42 +88,128 @@ fn isolate_column_as_iter(galactic_map: &Vec<Vec<Tile>>, col_index: usize) -> im
     col.into_iter()
 }
 
-pub fn process_part1(input: &str) -> String {
-    let (_, galaxy_map) = parse_input(input).expect("valid output");
-
-    // create set of all unique pairs of galaxies
-    let galaxies: HashSet<Pos> = galaxy_map
+fn generate_galaxy_set(galaxy_map: &Vec<Vec<Tile>>) -> HashSet<Pos> {
+    galaxy_map
         .iter()
         .enumerate()
         .flat_map(|(y_index, row)| {
             row.iter()
                 .enumerate()
                 .filter(|(_, t)| t == &&Tile::Galaxy)
-                .map(|(x_index, _)| Pos {
-                    x: x_index,
-                    y: y_index,
-                })
+                .map(|(x_index, _)| Pos::new(x_index, y_index))
                 .collect::<Vec<Pos>>()
         })
-        .collect();
-    let mut galaxy_pairs: Vec<GalacticPair> = vec![];
+        .collect()
+}
+
+fn generate_galaxy_pairs(galaxies: &HashSet<Pos>) -> Vec<GalacticPair> {
     let galx_1 = galaxies.clone();
     let galx_2 = galaxies.clone();
-    let galaxy_pairs: Vec<GalacticPair> = iproduct!(galx_1.iter(), galx_2.iter())
+    iproduct!(galx_1.iter(), galx_2.iter())
         .map(|(g1, g2)| GalacticPair(g1.clone(), g2.clone()))
-        // .map(GalacticPair::from) // map to GalacticPair type
-        .filter(|GalacticPair(f, s)| f != s) // remove pairs where both are the same
-        .unique() // remove references to the same pair, regardless of order
-        .collect::<Vec<GalacticPair>>(); // collect into Vec
-    dbg!(&galaxy_pairs);
-    // find distance between all pairs
-    // depending on distance
+        .filter(|GalacticPair(f, s)| f != s)
+        .unique()
+        .collect()
+}
 
-    todo!()
+fn collect_empty_space(galaxy_map: &Vec<Vec<Tile>>) -> Vec<EmptySpace> {
+    let mut empty_space: Vec<EmptySpace> = vec![];
+    for i in 0..galaxy_map.len() {
+        let row = galaxy_map[i].clone();
+        if row.iter().any(|t| t == &Tile::Galaxy) {
+            continue;
+        }
+        empty_space.push(EmptySpace(Alignment::Horiz, i));
+    }
+    for j in 0..galaxy_map[0].len() {
+        let mut col = isolate_column_as_iter(&galaxy_map, j);
+        if col.any(|t| t == Tile::Galaxy) {
+            continue;
+        }
+        empty_space.push(EmptySpace(Alignment::Vert, j));
+    }
+
+    empty_space
+}
+
+pub fn process_part1(input: &str) -> String {
+    let (_, galaxy_map) = parse_input(input).expect("valid input");
+
+    // create set of all unique pairs of galaxies
+    let galaxies: HashSet<Pos> = generate_galaxy_set(&galaxy_map);
+    let galaxy_pairs: Vec<GalacticPair> = generate_galaxy_pairs(&galaxies);
+    // identify and store all blank lines in space
+    let empty_space = collect_empty_space(&galaxy_map);
+    // find distance between all pairs
+    galaxy_pairs
+        .into_iter()
+        .map(|GalacticPair(this, that)| (this.distance(&that), GalacticPair(this, that)))
+        .map(|(dist, GalacticPair(this, that))| {
+            let mut expanded_dist = dist;
+            expanded_dist += empty_space.iter().filter(|&EmptySpace(alignment, row)|
+                *alignment == Alignment::Horiz 
+                && (
+                    this.y < *row
+                    && *row < that.y
+                    || that.y < *row
+                    && *row < this.y
+                )
+            )
+            .count();
+            expanded_dist += empty_space.iter().filter(|&EmptySpace(alignment, col)|
+                *alignment == Alignment::Vert
+                && (
+                    this.x < *col
+                    && *col < that.x
+                    ||
+                    that.x < *col
+                    && *col < this.x
+                )
+            )
+            .count();
+
+            expanded_dist
+        })
+        .sum::<usize>()
+        .to_string()
 }
 
 pub fn process_part2(input: &str) -> String {
-    todo!()
+    let (_, galaxy_map) = parse_input(input).expect("valid input");
+    let galaxies: HashSet<Pos> = generate_galaxy_set(&galaxy_map);
+    let galaxy_pairs: Vec<GalacticPair> = generate_galaxy_pairs(&galaxies);
+    let empty_space = collect_empty_space(&galaxy_map);
+    galaxy_pairs
+        .into_iter()
+        .map(|GalacticPair(this, that)| (this.distance(&that), GalacticPair(this, that)))
+        .map(|(dist, GalacticPair(this, that))| {
+            let mut expanded_dist = dist;
+            expanded_dist += empty_space.iter().filter(|&EmptySpace(alignment, row)|
+                *alignment == Alignment::Horiz 
+                && (
+                    this.y < *row
+                    && *row < that.y
+                    || that.y < *row
+                    && *row < this.y
+                )
+            )
+            .count() * 10;
+            expanded_dist += empty_space.iter().filter(|&EmptySpace(alignment, col)|
+                *alignment == Alignment::Vert
+                && (
+                    this.x < *col
+                    && *col < that.x
+                    ||
+                    that.x < *col
+                    && *col < this.x
+                )
+            )
+            .count() * 10;
+
+            expanded_dist
+        })
+        .sum::<usize>()
+        .to_string()
 }
 
 #[cfg(test)]
@@ -144,11 +235,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn part2_works() {
-        let expected = String::from("");
+        let expected_10 = String::from("1030");
+        let expected_100 = String::from("8410");
         let result = process_part2(INPUT);
-        assert_eq!(expected, result);
+        assert_eq!(expected_10, result);
+        // assert_eq!(expected_100, result);
     }
 
     #[test]
@@ -194,5 +286,19 @@ mod tests {
             .unique()
             .collect::<Vec<GalacticPair>>();
         assert_eq!(expected, galaxy_pairs);
+    }
+
+    #[test]
+    fn empty_space_generation_works() {
+        let (_, galaxy_map) = parse_input(INPUT).expect("valid input");
+        let expected: Vec<EmptySpace> = vec![
+            EmptySpace(Alignment::Horiz, 3),
+            EmptySpace(Alignment::Horiz, 7),
+            EmptySpace(Alignment::Vert, 2),
+            EmptySpace(Alignment::Vert, 5),
+            EmptySpace(Alignment::Vert, 8),
+        ];
+        let result = collect_empty_space(&galaxy_map);
+        assert_eq!(expected, result);
     }
 }
