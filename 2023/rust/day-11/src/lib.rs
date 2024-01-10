@@ -8,6 +8,8 @@ use itertools::{Itertools, iproduct};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
+const EXPANSION_COEFFICIENT: usize = 100;
+
 #[derive(Debug, Clone)]
 struct GalacticPair(Pos, Pos);
 
@@ -181,32 +183,34 @@ pub fn process_part2(input: &str) -> String {
     let empty_space = collect_empty_space(&galaxy_map);
     galaxy_pairs
         .into_iter()
-        .map(|GalacticPair(this, that)| (this.distance(&that), GalacticPair(this, that)))
-        .map(|(dist, GalacticPair(this, that))| {
-            let mut expanded_dist = dist;
-            expanded_dist += empty_space.iter().filter(|&EmptySpace(alignment, row)|
+        .map(|GalacticPair(g1, g2)| {
+            let mut dist = g1.distance(&g2);
+            
+            let num_empty_rows_between = empty_space.iter().filter(|&EmptySpace(alignment, row)|
                 *alignment == Alignment::Horiz 
                 && (
-                    this.y < *row
-                    && *row < that.y
-                    || that.y < *row
-                    && *row < this.y
+                    (g1.y < *row && *row < g2.y)
+                    ||
+                    (g2.y < *row && *row < g1.y)
                 )
             )
-            .count() * 10;
-            expanded_dist += empty_space.iter().filter(|&EmptySpace(alignment, col)|
+            .count();
+            
+            let num_empty_cols_between = empty_space.iter().filter(|&EmptySpace(alignment, col)|
                 *alignment == Alignment::Vert
                 && (
-                    this.x < *col
-                    && *col < that.x
+                    (g1.x < *col && *col < g2.x)
                     ||
-                    that.x < *col
-                    && *col < this.x
+                    (g2.x < *col && *col < g1.x)
                 )
             )
-            .count() * 10;
+            .count();
 
-            expanded_dist
+            dist += 
+                (num_empty_rows_between + num_empty_cols_between) * EXPANSION_COEFFICIENT
+                - (num_empty_rows_between + num_empty_cols_between);
+
+            dist
         })
         .sum::<usize>()
         .to_string()
@@ -233,14 +237,14 @@ mod tests {
         let result = process_part1(INPUT);
         assert_eq!(expected, result);
     }
-
+    
     #[test]
     fn part2_works() {
-        let expected_10 = String::from("1030");
-        let expected_100 = String::from("8410");
         let result = process_part2(INPUT);
-        assert_eq!(expected_10, result);
-        // assert_eq!(expected_100, result);
+        // let expected_10 = String::from("1030");
+        // assert_eq!(expected_10, result);
+        let expected_100 = String::from("8410");
+        assert_eq!(expected_100, result);
     }
 
     #[test]
