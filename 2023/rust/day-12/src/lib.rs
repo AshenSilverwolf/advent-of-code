@@ -47,9 +47,13 @@ fn parse_input(input: &str) -> IResult<&str, Vec<(Vec<Condition>, Vec<u32>)>> {
 pub fn process_part1(input: &str) -> String {
     let (_, spring_rows) = parse_input(input).expect("valid input");
 
-    dbg!(spring_rows);
-
-    todo!()
+    spring_rows
+        .iter()
+        .map(|(record, sequence)| {
+            todo!("process spring row into num of arrangements/permutations")
+        })
+        .sum::<u32>()
+        .to_string()
 }
 
 pub fn process_part2(input: &str) -> String {
