@@ -37,7 +37,9 @@ fn parse_input(input: &str) -> IResult<&str, Vec<Pattern>> {
 }
 
 fn split_pattern_by_col(col: usize, pattern: &Pattern) -> (Pattern, Pattern) {
-    todo!()
+    assert!(col > 0);
+    // separate the pattern into two parts by col
+    // let mut first = pattern...
 }
 
 fn split_pattern_by_row(row: usize, pattern: &Pattern) -> (Pattern, Pattern) {
@@ -67,7 +69,7 @@ pub fn process_part1(input: &str) -> String {
     let (_, patterns) = parse_input(input).expect("valid input");
 
     for pattern in patterns.iter() {
-        let (first, second) = split_pattern_by_row(4, pattern);
+        let (first, second) = split_pattern_by_col(5, pattern);
         dbg!(first == second);
     }
     
